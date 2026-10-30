@@ -123,6 +123,24 @@ def evaluate(data):
             "ranked":ranked,"cash_return_pct":0.0,"real_orders":False,
             "warning":"Multiple-hypothesis search increases overfitting risk; test results are descriptive only."}
 
+def evaluate_adaptive(data, historical_scores):
+    """Out-of-sample per-symbol regime routing; scores must predate holdout."""
+    results = {}
+    for symbol, series in data.items():
+        bars = [series[t] for t in sorted(series)]
+        if len(bars) < 1000:
+            continue
+        start = int(len(bars) * .8)
+        regime = classify(bars, start)
+        candidate = select(symbol, regime, universe(), historical_scores)
+        results[symbol] = {
+            "regime": regime,
+            "strategy": candidate["id"] if candidate else None,
+            "test": simulate(bars, candidate, start, len(bars)) if candidate else None,
+        }
+    return {"paper_only": True, "per_asset": results,
+            "selection_uses_holdout": False}
+
 if __name__=="__main__":
     report=evaluate(load_data())
     Path("crypto-agent/v8-strategy-research.json").write_text(json.dumps(report,indent=2))
