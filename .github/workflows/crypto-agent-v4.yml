@@ -1,5 +1,9 @@
 name: Crypto Agent V4 Walk Forward
 on:
+  pull_request:
+    paths:
+      - 'crypto-agent/**'
+      - '.github/workflows/crypto-agent-v4.yml'
   workflow_dispatch:
     inputs:
       days:
