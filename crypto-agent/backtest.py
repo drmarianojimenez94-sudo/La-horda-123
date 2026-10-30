@@ -6,6 +6,9 @@ MIN_NET_TARGET=.01
 MIN_REWARD_RISK=2.0
 MAX_RISK_PER_TRADE=.005
 MAX_DAILY_LOSS=.02
+# Leverage is configuration-only until a futures margin/liquidation/funding model is validated.
+PAPER_LEVERAGE=1.0
+MAX_PAPER_LEVERAGE=2.0
 def get(url):
  with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'CryptoAgentPaper/1.0'}),timeout=20) as r:return json.load(r)
 def download(days=90,top=20):
@@ -50,6 +53,8 @@ def load():
   pairs[f.stem]={r['timestamp']:{k:float(r[k]) for k in ('open','high','low','close','volume')} for r in rows}
  return pairs
 def run(pairs,name,start,end,warmup_start=None):
+ if not 1.0<=PAPER_LEVERAGE<=MAX_PAPER_LEVERAGE:raise ValueError('Unsupported leverage')
+ if PAPER_LEVERAGE!=1.0:raise NotImplementedError('Leveraged backtest requires funding, margin and liquidation modeling')
  cash=200.;positions={};trades=[];history={s:[] for s in pairs};last={}
  day='';day_base=200.;halt=False;halts=0;peak=200.;drawdown=0.
  weekly_closed=[];weekly_scale=1.;week_key=None;weekly_reviews=[]
@@ -115,16 +120,28 @@ def run(pairs,name,start,end,warmup_start=None):
     signal=(trend and momentum>0) or (abs(fast/slow-1)<.008 and h[-2]<fast<h[-1])
    else:
     signal=trend and h[-1]>=max(h[-24:]) and momentum>.003
-   if signal and vol>.002:candidates.append((momentum,s,vol))
+   if signal and vol>.002:
+    liquidity=statistics.fmean([p['volume']*p['close'] for p in list(pairs[s].values())[-1:]]) if False else statistics.fmean([b['volume']*b['close']])
+    candidates.append((momentum,s,vol,liquidity))
   if not halt and active:
-   for _,s,vol in sorted(candidates,reverse=True):
+   for _,s,vol,liquidity in sorted(candidates,reverse=True):
     if len(positions)>=max_open:break
     distance=max(.012,min(.04,vol*1.5))
     # Gross target includes both execution costs and >=1% net target.
     target=max(MIN_NET_TARGET+2*cost,MIN_REWARD_RISK*distance+2*cost)
     equity=mark()
     used=sum(p['cost'] for p in positions.values())
-    allocation=min(cash,max(0,200*max_exposure-used),max(0,equity)*MAX_RISK_PER_TRADE*weekly_scale/(distance+2*cost))
+    allocation=min(cash,max(0,equity*max_exposure-used),max(0,equity)*MAX_RISK_PER_TRADE*weekly_scale/(distance+2*cost))
+    # Penalize highly correlated candidates using trailing completed closes.
+    if positions:
+     h=history[s][-48:]
+     for other in positions:
+      k=history[other][-48:]
+      if len(h)==len(k)==48:
+       mh=statistics.fmean(h);mk=statistics.fmean(k)
+       denom=math.sqrt(sum((v-mh)**2 for v in h)*sum((v-mk)**2 for v in k))
+       corr=sum((a-mh)*(b-mk) for a,b in zip(h,k))/denom if denom else 0
+       if corr>.8:allocation*=.5
     if allocation<5:continue
     px=bars[s]['open'];qty=allocation/(px*(1+cost))
     positions[s]={'qty':qty,'cost':allocation,'entry':px,'stop':px*(1-distance),'target':px*(1+target),'distance':distance,'trail_trigger':target*.5,'age':0}
