@@ -1,0 +1,48 @@
+name: CryptoAgent V7 Six-Month Research
+on:
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile and run V7 plus legacy engine regressions
+        run: |
+          python -m compileall -q crypto-agent
+          python -m unittest discover -s crypto-agent -p 'test_*v5.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_*v6.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_event_v7.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_event_learning_v7.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_brain_v7.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_replay_v7.py' -v
+      - name: Download 180 days of REAL 5-minute market candles
+        run: python crypto-agent/download_5m.py --days 180 --symbols BTCUSDT,ETHUSDT
+      - name: Verify market coverage
+        run: |
+          python -c "from backtest_v2 import load_data; d=load_data(); assert set(d)=={'BTCUSDT','ETHUSDT'}; assert all(len(x)>=180*250 for x in d.values()); print({k:len(v) for k,v in d.items()})"
+        env:
+          PYTHONPATH: crypto-agent
+      - name: Train and calibrate chronologically; evaluate untouched OOS windows
+        run: python crypto-agent/walkforward_v5.py --train-days 60 --cal-days 20 --test-days 20
+      - name: Compare cash and buy-and-hold
+        run: python crypto-agent/benchmark_180d.py
+      - name: Produce explicit data-capability statement
+        run: |
+          python -c "import json; p='crypto-agent/audit_v5_walkforward.json'; r=json.load(open(p)); r['experiment']='V7 research bridge: V6 learned OHLCV specialists, not V7 quote-event model'; r['data_type']='historical_5m_candles'; r['event_replay_tested_in_ci']=True; r['historical_L2_available']=False; r['historical_bid_ask_available']=False; r['real_money_orders']=False; open('crypto-agent/v7-180d-report.json','w').write(json.dumps(r,indent=2))"
+      - name: Upload complete reports even if a stage fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crypto-agent-v7-180day-research
+          path: |
+            crypto-agent/v7-180d-report.json
+            crypto-agent/audit_v5_walkforward.json
+            crypto-agent/benchmark_180d.json
+          if-no-files-found: warn
+          retention-days: 90
