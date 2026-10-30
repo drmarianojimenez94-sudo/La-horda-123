@@ -9,6 +9,9 @@ MAX_DAILY_LOSS=.02
 # Leverage is configuration-only until a futures margin/liquidation/funding model is validated.
 PAPER_LEVERAGE=1.0
 MAX_PAPER_LEVERAGE=2.0
+LEVERAGE_MIN_REWARD_RISK=3.0
+LEVERAGE_MIN_VALIDATED_WIN_RATE=.65
+LEVERAGE_RISK_CAP=.005
 def get(url):
  with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'CryptoAgentPaper/1.0'}),timeout=20) as r:return json.load(r)
 def download(days=90,top=20):
@@ -52,6 +55,12 @@ def load():
   if len(rows)<100:continue
   pairs[f.stem]={r['timestamp']:{k:float(r[k]) for k in ('open','high','low','close','volume')} for r in rows}
  return pairs
+def leverage_eligible(validated_win_rate, reward_risk, expected_net, liquid, trend_confirmed):
+ # Only a candidate filter; not authorization to trade futures.
+ return (validated_win_rate is not None and validated_win_rate>.65
+         and reward_risk>=LEVERAGE_MIN_REWARD_RISK and expected_net>0
+         and liquid and trend_confirmed)
+
 def run(pairs,name,start,end,warmup_start=None):
  if not 1.0<=PAPER_LEVERAGE<=MAX_PAPER_LEVERAGE:raise ValueError('Unsupported leverage')
  if PAPER_LEVERAGE!=1.0:raise NotImplementedError('Leveraged backtest requires funding, margin and liquidation modeling')
