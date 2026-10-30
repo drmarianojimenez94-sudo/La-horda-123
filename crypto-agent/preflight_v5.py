@@ -20,9 +20,10 @@ def preflight(data,train_days=45,cal_days=15,test_days=15):
     _,calibration,_=purged_split(rows,train_end,cal_end,test_end)
     # Feasibility only on calibration rows, never test outcomes.
     calibrated_signals=[{"symbol":r["symbol"],**r} for r in calibration]
-    eligible=sum(bool(select([r],models)) for r in calibrated_signals)
+    eligible=sum(bool(select([r],models,threshold=counts["selected_threshold"])) for r in calibrated_signals)
     return {"ready":bool(models) and eligible>0,"models":list(models),
             "calibration_eligible_signals":eligible,"samples":counts,
+            "entry_threshold":counts["selected_threshold"],
             "reason":"ok" if eligible else "no_positive_expectancy_calibration_signals"}
 
 def main():
