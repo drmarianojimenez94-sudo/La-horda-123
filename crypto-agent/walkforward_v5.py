@@ -24,6 +24,10 @@ def validate(data,train_days=45,cal_days=15,test_days=15):
         result=run(data,start=cal_end,end=test_end,models=models)
         results.append({"train_end":train_end,"cal_end":cal_end,"test_end":test_end,
                         "samples":counts,"specialists":list(models),
+                        "model_snapshots":{name:{"weights":list(m["model"]),
+                          "calibration":list(m["calibration"]),
+                          "average_win":m["win"],"average_loss":m["loss"]}
+                          for name,m in models.items()},
                         "calibration_by_specialist":calibration_diagnostics(calibration_rows,models),
                         "test_diagnostics_by_specialist":calibration_diagnostics(test_rows,models),
                         "selection_reasons":result["selection_reasons"],
