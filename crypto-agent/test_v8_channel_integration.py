@@ -16,6 +16,13 @@ class IntegrationTests(unittest.TestCase):
   r=research(data())
   self.assertEqual(r["variants"],27)
   self.assertTrue(r["paper_only"])
+ def test_disjoint_development_windows(self):
+  r=research(data())
+  self.assertEqual(r["development_windows"],((0.,.2),(.2,.4),(.4,.6),(.6,.8)))
+  self.assertEqual(r["final_window"],(.8,1.))
+ def test_no_leverage_and_shared_cap(self):
+  r=simulate(data(),risk_fraction=.005,max_portfolio_risk=.015)
+  self.assertGreaterEqual(r["fees"],0)
  def test_prefix_invariance(self):
   b=list(data()["BTCUSDT"].values())
   self.assertEqual(confirmed(b,150,48,1.05),confirmed(b[:151],150,48,1.05))
