@@ -39,7 +39,15 @@ def hourly_from_5m(folder="crypto-agent/data_5m"):
 def main():
     data=hourly_from_5m()
     comparison=evaluate(data)
+    # Price-behaviour module assumes 288 5m bars/day; compute daily statistics
+    # separately on the 24 hourly bars per UTC day to avoid mislabeled periods.
     behaviour=characterize(data)
+    for symbol,series in data.items():
+        bars=[series[t] for t in sorted(series)]
+        day_returns=[bars[i+23]["close"]/bars[i]["open"]-1 for i in range(0,len(bars),24)]
+        behaviour["symbols"][symbol]["calendar_day_return_mean_pct"]=100*sum(day_returns)/len(day_returns)
+        behaviour["symbols"][symbol]["daily"]=None
+    behaviour["daily_statistic_note"]="Legacy 288-bar daily summary disabled for hourly series; calendar-day mean uses 24 hourly candles"
     report={"year":2025,"source":"Binance real 5-minute spot candles",
             "evaluation_frequency":"1h aggregated from 5m (not tick/L2)",
             "hourly_bars_per_symbol":8760,"strategy_comparison":comparison,
