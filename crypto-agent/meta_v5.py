@@ -22,12 +22,19 @@ def train(rows, train_end, calibration_end, test_end):
         losses = [-r["net_return"] for r in train_rows if r["net_return"] < 0]
         if not wins or not losses:
             continue
+        probabilities=[calibrated_probability(predict(model,r),calibration_model) for r in cal_rows]
+        base_rate=sum(r["label"] for r in train_rows)/len(train_rows)
+        model_brier=mean((p-r["label"])**2 for p,r in zip(probabilities,cal_rows))
+        constant_brier=mean((base_rate-r["label"])**2 for r in cal_rows)
+        if model_brier>=constant_brier:
+            continue  # reject specialist that cannot beat a constant predictor
         models[name] = {"model": model, "calibration": calibration_model,
+                        "model_brier":model_brier,"constant_brier":constant_brier,
                         "win": mean(wins), "loss": mean(losses)}
     return models, {"train": len(training), "calibration": len(calibration),
                     "test": len(test)}
 
-def select(signals, models, exposure=None, limit=.4, per_asset=.15, threshold=.002):
+def select(signals, models, exposure=None, limit=.4, per_asset=.15, threshold=.0018):
     exposure = dict(exposure or {})
     ranked = []
     for signal in signals:
