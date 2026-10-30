@@ -1,0 +1,29 @@
+name: Crypto Agent 90-day backtest
+on:
+  push:
+    paths:
+      - '.github/workflows/crypto-backtest.yml'
+      - 'crypto-agent/**'
+  workflow_dispatch:
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download and run 90-day backtest
+        run: python crypto-agent/backtest.py | tee crypto-agent/run.log
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crypto-backtest-results
+          path: |
+            crypto-agent/report.json
+            crypto-agent/run.log
+          if-no-files-found: warn
