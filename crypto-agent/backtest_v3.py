@@ -7,7 +7,7 @@ from backtest_v2 import load_data
 def run(data,start,end,config=Config()):
     times=sorted(set().union(*(set(v) for v in data.values())))
     cash=200.;positions={};pending={};history={s:[] for s in data}
-    ledger=[];curve=[];peak=200.;day=None;day_equity=200.;halt=False
+    ledger=[];curve=[];peak=200.;max_dd=0.;day=None;day_equity=200.;halt=False
     for t in times:
         bars={s:v[t] for s,v in data.items() if t in v}
         active=start<=t<end
@@ -43,6 +43,7 @@ def run(data,start,end,config=Config()):
         equity=cash+sum(p["qty"]*bars[s]["close"] for s,p in positions.items() if s in bars)
         peak=max(peak,equity)
         drawdown=1-equity/peak
+        if active:max_dd=max(max_dd,drawdown)
         daily_loss=max(0,1-equity/day_equity) if day_equity else 0
         if daily_loss>=config.max_daily_loss or drawdown>=config.max_drawdown:halt=True
         if active:curve.append(dict(timestamp=t,equity=equity))
@@ -60,7 +61,7 @@ def run(data,start,end,config=Config()):
     for s,p in positions.items():
         last=next((data[s][t] for t in reversed(times) if t<end and t in data[s]),None)
         if last:final+=p["qty"]*last["close"]*(1-config.half_spread-config.slippage)*(1-config.fee)
-    return dict(final=final,return_pct=100*(final/200-1),max_drawdown_pct=100*max((1-x["equity"]/max(200,*[v["equity"] for v in curve[:i+1]])) for i,x in enumerate(curve)) if curve else 0,
+    return dict(final=final,return_pct=100*(final/200-1),max_drawdown_pct=100*max_dd,
                 trades=len(ledger),ledger=ledger,equity_curve=curve)
 
 def main():
