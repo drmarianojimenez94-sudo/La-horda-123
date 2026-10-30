@@ -4,6 +4,9 @@ sys.path.insert(0,"crypto-agent")
 from backtest_v4 import calibrate, benchmark
 from strategy_v3 import Config, candidates
 from learner_v4 import fit,predict,vector
+from v4_extension import SCENARIOS,simulate_partial_fill,fit_platt,calibrated_probability
+from dataclasses import replace
+from backtest_v3 import run
 
 class V4Tests(unittest.TestCase):
     def test_no_evidence_means_no_trading(self):
@@ -33,6 +36,25 @@ class V4Tests(unittest.TestCase):
         p=predict(model,rows[0])
         self.assertGreater(p,.5)
         self.assertEqual(len(vector(rows[0])),len(model))
+
+    def test_calibration_changes_live_probability(self):
+        model=fit_platt([.2]*20+[.8]*20,[0]*20+[1]*20)
+        self.assertIsNotNone(model)
+        self.assertGreater(calibrated_probability(.8,model),calibrated_probability(.2,model))
+
+    def test_partial_fill_and_stress(self):
+        bar={"open":100.,"high":102.,"low":98.,"close":100.,"volume":.1,"quote_volume":10.}
+        normal=simulate_partial_fill(100.,bar,SCENARIOS[0])
+        adverse=simulate_partial_fill(100.,bar,SCENARIOS[1])
+        self.assertLess(normal["filled_notional"],100.)
+        self.assertLess(adverse["filled_notional"],normal["filled_notional"])
+        self.assertGreater(adverse["price"],normal["price"])
+
+    def test_empty_strategy_preserves_cash(self):
+        bars={str(i).zfill(5):{"timestamp":str(i).zfill(5),"open":100.,"high":101.,"low":99.,"close":100.,"volume":100.} for i in range(20)}
+        result=run({"BTCUSDT":bars},"00005","00019",replace(Config(),enabled_strategies=()))
+        self.assertEqual(result["trades"],0)
+        self.assertEqual(result["final"],200.)
 
     def test_benchmark(self):
         data={"BTCUSDT":{"a":{"open":100,"close":100},"b":{"open":100,"close":110}}}
