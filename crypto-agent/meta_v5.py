@@ -1,5 +1,5 @@
 """Offline research meta-model. Fit only on purged historical labels."""
-from statistics import mean
+from statistics import mean,pstdev
 from learner_v4 import fit, predict
 from v4_extension import fit_platt, calibrated_probability
 from labels_v5 import purged_split
@@ -31,7 +31,13 @@ def train(rows, train_end, calibration_end, test_end, archived=None):
         constant_brier=mean((base_rate-r["label"])**2 for r in cal_rows)
         if model_brier>=constant_brier:
             continue  # reject specialist that cannot beat a constant predictor
+        # Historical opportunities overlap in time; discount effective sample size.
+        cal_returns=[float(r["net_return"]) for r in cal_rows]
+        effective_n=max(1,len(cal_returns)//12)
+        uncertainty=pstdev(cal_returns)/(effective_n**.5)
         models[name] = {"model": model, "calibration": calibration_model,
+                        "calibration_net_mean":mean(cal_returns),
+                        "return_standard_error":uncertainty,
                         "model_brier":model_brier,"constant_brier":constant_brier,
                         "win": mean(wins), "loss": mean(losses),
                         "calibration_samples":len(cal_rows),
@@ -44,7 +50,7 @@ def train(rows, train_end, calibration_end, test_end, archived=None):
         m=models.get(row["strategy"])
         if m is None:continue
         p=calibrated_probability(predict(m["model"],row),m["calibration"])
-        uncertainty=.25*m["calibration_error"]*(m["win"]+m["loss"])
+        uncertainty=.25*m["calibration_error"]*(m["win"]+m["loss"])+.25*m["return_standard_error"]
         edge=p*m["win"]-(1-p)*m["loss"]-uncertainty-.0001
         if edge>0:positive.append(edge)
     positive.sort()
@@ -65,7 +71,8 @@ def select(signals, models, exposure=None, limit=.4, per_asset=.15, threshold=.0
             predict(model["model"], signal), model["calibration"])
         expected = probability * model["win"] - (1-probability) * model["loss"]
         expected -= sum(exposure.values()) * .25 * model["loss"]
-        expected -= .25*model.get("calibration_error",0)*(model["win"]+model["loss"])+.0001
+        expected -= (.25*model.get("calibration_error",0)*(model["win"]+model["loss"])
+                     +.25*model.get("return_standard_error",0)+.0001)
         if expected >= threshold:
             ranked.append((expected, signal, probability))
     ranked.sort(key=lambda row: row[0], reverse=True)

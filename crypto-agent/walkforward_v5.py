@@ -38,6 +38,11 @@ def validate(data,train_days=45,cal_days=15,test_days=15):
                         "samples":counts,"specialists":list(models),
                         "warm_start_sources":{name:models[name].get("warm_start_run") for name in models},
                         "specialist_performance":result["specialist_performance"],
+                        "calibration_edge_diagnostics":{name:{
+                            "mean_net_return":m["calibration_net_mean"],
+                            "return_standard_error":m["return_standard_error"],
+                            "calibration_error":m["calibration_error"]}
+                            for name,m in models.items()},
                         "entry_threshold":counts["selected_threshold"],
                         "model_snapshots":{name:{"weights":list(m["model"]),
                           "calibration":list(m["calibration"]),
@@ -58,6 +63,9 @@ def validate(data,train_days=45,cal_days=15,test_days=15):
             "method":"expanding purged training, independent calibration and disjoint OOS",
             "folds":results,"no_live_orders":True}
     report["champion_candidate_metrics"]=metrics(report)
+    report["target_90d_pct"]=5.0
+    report["target_gap_pct_points"]=5.0-report["champion_candidate_metrics"]["return_pct"]
+    report["target_met"]=report["target_gap_pct_points"]<=0
     report["champion_decision"]=evaluate(report)
     return report
 
