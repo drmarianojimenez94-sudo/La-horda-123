@@ -10,6 +10,7 @@ from pathlib import Path
 from backtest_v2 import load_data
 from backtest_v3 import run
 from strategy_v3 import Config
+from learner_v4 import fit,diagnostics
 
 INITIAL=200.0
 BAR_DAY=288
@@ -74,24 +75,27 @@ def validate(data):
         start,end=times[index],times[index+step-1]
         training=run(data,times[0],start)
         enabled,priors,training_stats=calibrate(training["ledger"])
-        config=replace(Config(),enabled_strategies=enabled,learned_priors=priors)
+        model=fit(training["ledger"])
+        config=replace(Config(),enabled_strategies=enabled,learned_priors=priors,
+                       learned_model=model or ())
         # With no demonstrated edge, preserve cash rather than force trades.
         test=run(data,start,end,config)
         windows.append({"train_start":times[0],"train_end_exclusive":start,
                         "test_start":start,"test_end_inclusive":end,
                         "selected_strategies":list(enabled),"training":training_stats,
+                        "learner":diagnostics(model,training["ledger"]),
                         "oos":summarize(test),"benchmarks":benchmark(data,start,end)})
         for trade in test["ledger"]:
             trades.append({"fold":len(windows),**trade})
     if not windows:
         raise ValueError("No complete out-of-sample windows")
     compounded=100*(math.prod(1+w["oos"]["return_pct"]/100 for w in windows)-1)
-    return {"version":"V4 research, training-only empirical calibration",
+    return {"version":"V4 research, training-only regularized logistic learner and empirical calibration",
             "training":"expanding 45+ days, 15-day disjoint test windows",
             "execution":"next 5m open, fees, fixed spread and slippage, conservative OHLC stop priority",
             "aggregate_oos_return_pct":round(compounded,6),
             "windows":windows,
-            "limitations":["Not trained ML","No L2 book or genuine partial fills",
+            "limitations":["Simple logistic ML only, no calibrated holdout probability guarantee","No L2 book or genuine partial fills",
                            "No real historical spread, market impact or funding",
                            "No short selling or leverage","Small training sample may prevent trading"],
             "trades":trades}
