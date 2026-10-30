@@ -9,12 +9,12 @@ from pathlib import Path
 SYMBOLS = ("BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
            "ADAUSDT", "DOGEUSDT", "TRXUSDT", "LINKUSDT", "AVAXUSDT")
 
-def download(days=90):
+def download(days=90,symbols=SYMBOLS):
     end = datetime.datetime.now(datetime.timezone.utc).date() - datetime.timedelta(days=1)
     start = end - datetime.timedelta(days=days - 1)
     folder = Path("crypto-agent/data_5m")
     folder.mkdir(parents=True, exist_ok=True)
-    for symbol in SYMBOLS:
+    for symbol in symbols:
         count = 0
         with (folder / (symbol + ".csv")).open("w", newline="") as target:
             writer = csv.writer(target)
@@ -44,4 +44,9 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--days", type=int, choices=(90, 180, 365), default=90)
-    download(parser.parse_args().days)
+    parser.add_argument("--symbols",default=",".join(SYMBOLS))
+    args=parser.parse_args()
+    symbols=tuple(x.strip().upper() for x in args.symbols.split(",") if x.strip())
+    if not symbols or any(x not in SYMBOLS for x in symbols):
+        parser.error("Symbols must be in the supported spot symbol list")
+    download(args.days,symbols)

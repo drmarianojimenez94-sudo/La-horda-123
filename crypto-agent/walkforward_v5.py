@@ -70,7 +70,14 @@ def validate(data,train_days=45,cal_days=15,test_days=15):
     return report
 
 def main():
-    report=validate(load_data())
+    import argparse
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--train-days",type=int,default=45)
+    parser.add_argument("--cal-days",type=int,default=15)
+    parser.add_argument("--test-days",type=int,default=15)
+    args=parser.parse_args()
+    report=validate(load_data(),train_days=args.train_days,
+                    cal_days=args.cal_days,test_days=args.test_days)
     Path("crypto-agent/audit_v5_walkforward.json").write_text(json.dumps(report,indent=2))
     print(json.dumps(report,indent=2))
 if __name__=="__main__":main()
