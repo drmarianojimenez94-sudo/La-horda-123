@@ -46,7 +46,7 @@ def run(data,start,end,config=Config()):
                 proceeds=p["qty"]*exit_price*(1-config.fee);cash+=proceeds
                 ledger.append(dict(symbol=s,strategy=p["strategy"],regime=p["regime"],entry_time=p["entry_time"],exit_time=t,
                                    entry=p["entry"],exit=exit_price,quantity=p["qty"],cost=p["entry_cost"],
-                                   proceeds=proceeds,pnl=proceeds-p["entry_cost"],reason=reason))
+                                   proceeds=proceeds,pnl=proceeds-p["entry_cost"],reason=reason,stop_distance=p["stop_distance"],reward_risk=p["reward_risk"],estimated_net=p["estimated_net"]))
                 del positions[s]
         equity=cash+sum(p["qty"]*bars[s]["close"] for s,p in positions.items() if s in bars)
         peak=max(peak,equity)
@@ -61,7 +61,7 @@ def run(data,start,end,config=Config()):
                 px=bars[sym]["close"]*(1-config.half_spread-config.slippage)
                 proceeds=p["qty"]*px*(1-config.fee)
                 cash+=proceeds
-                ledger.append(dict(symbol=sym,strategy=p["strategy"],regime=p["regime"],entry_time=p["entry_time"],exit_time=t,entry=p["entry"],exit=px,quantity=p["qty"],cost=p["entry_cost"],proceeds=proceeds,pnl=proceeds-p["entry_cost"],reason="risk_liquidation"))
+                ledger.append(dict(symbol=sym,strategy=p["strategy"],regime=p["regime"],entry_time=p["entry_time"],exit_time=t,entry=p["entry"],exit=px,quantity=p["qty"],cost=p["entry_cost"],proceeds=proceeds,pnl=proceeds-p["entry_cost"],reason="risk_liquidation",stop_distance=p["stop_distance"],reward_risk=p["reward_risk"],estimated_net=p["estimated_net"]))
                 del positions[sym]
             equity=cash+sum(p["qty"]*bars[sym]["close"] for sym,p in positions.items() if sym in bars)
         if active:curve.append(dict(timestamp=t,equity=equity))
@@ -81,7 +81,7 @@ def run(data,start,end,config=Config()):
         px=last["close"]*(1-config.half_spread-config.slippage)
         proceeds=p["qty"]*px*(1-config.fee)
         cash+=proceeds
-        ledger.append(dict(symbol=sym,strategy=p["strategy"],regime=p["regime"],entry_time=p["entry_time"],exit_time=end,entry=p["entry"],exit=px,quantity=p["qty"],cost=p["entry_cost"],proceeds=proceeds,pnl=proceeds-p["entry_cost"],reason="window_end"))
+        ledger.append(dict(symbol=sym,strategy=p["strategy"],regime=p["regime"],entry_time=p["entry_time"],exit_time=end,entry=p["entry"],exit=px,quantity=p["qty"],cost=p["entry_cost"],proceeds=proceeds,pnl=proceeds-p["entry_cost"],reason="window_end",stop_distance=p["stop_distance"],reward_risk=p["reward_risk"],estimated_net=p["estimated_net"]))
         del positions[sym]
     # Remaining positions are valued conservatively if a symbol has no final bar.
     final=cash
