@@ -31,6 +31,7 @@ jobs:
           python -m unittest discover -s crypto-agent -p 'test_training_memory_v5.py' -v
           python -m unittest discover -s crypto-agent -p 'test_champion_v5.py' -v
           python -m unittest discover -s crypto-agent -p 'test_economic_learning_v5.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_fast_v5.py' -v
       - name: Download historical crypto market data
         run: python crypto-agent/download_5m.py --days ${{ inputs.days }}
       - name: Fast feasibility preflight (stop if no eligible calibrated signals)
