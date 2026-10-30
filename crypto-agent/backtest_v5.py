@@ -20,17 +20,17 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
         if t>=start:
             for oid,o in list(p.orders.items()):
                 if o.status!="open" or o.symbol not in bars:continue
-                if o.side=="buy" and oid not in exits:continue
                 paper_fill(p,oid,bars[o.symbol],conditions)
             for s,deadline in list(exits.items()):
                 if t>=deadline and p.positions.get(s,0)>1e-10:
                     # Cancel any residual buy before liquidating.
                     for oid,o in list(p.orders.items()):
                         if o.symbol==s and o.side=="buy" and o.status=="open":p.cancel(oid)
-                    sell_id=f"sell:{s}:{t}"
-                    if not any(o.symbol==s and o.side=="sell" and o.status=="open" for o in p.orders.values()):
-                        p.place(sell_id,s,"sell",p.available_quantity(s))
-                    if s in bars:paper_fill(p,sell_id,bars[s],conditions)
+                    existing=next((oid for oid,o in p.orders.items() if o.symbol==s and o.side=="sell" and o.status=="open"),None)
+                    if existing is None:
+                        existing=f"sell:{s}:{t}"
+                        p.place(existing,s,"sell",p.available_quantity(s))
+                    if s in bars:paper_fill(p,existing,bars[s],conditions)
                 if p.positions.get(s,0)<=1e-10 and t>=deadline:del exits[s]
             p.reconcile(last)
             curve.append({"timestamp":t,"equity":p.equity(last)})
