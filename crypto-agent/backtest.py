@@ -2,6 +2,10 @@ import csv, json, math, statistics, urllib.request, datetime, time
 from pathlib import Path
 PROFILES={'conservadora':(10,3,.01,-1.6,.006,.018),'agresiva':(30,5,.03,-1.05,.011,.035),'adaptativa':(20,4,.02,-1.3,.008,.024)}
 FEE=.001; SPREAD=.0006; SLIP=.0005
+MIN_NET_TARGET=.01
+MIN_REWARD_RISK=2.0
+MAX_RISK_PER_TRADE=.005
+MAX_DAILY_LOSS=.02
 def get(url):
  with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'CryptoAgentPaper/1.0'}),timeout=20) as r:return json.load(r)
 def download(days=90,top=20):
