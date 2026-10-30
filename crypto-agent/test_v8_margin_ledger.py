@@ -16,6 +16,14 @@ class MarginTests(unittest.TestCase):
   self.assertEqual(l.mark(101,45,90),"liquidation")
   self.assertEqual(l.liquidations,1)
   self.assertIsNone(l.position)
+ def test_funding_moves_liquidation_level(self):
+  l=MarginLedger(funding_per_8h=.01)
+  l.open(100,20,2)
+  initial=l.position.liquidation_price
+  l.mark(101,95,100,hours=8)
+  self.assertGreater(l.funding,0)
+  self.assertIsNotNone(l.position)
+  self.assertGreater((l.position.borrowed+l.funding)/(l.position.quantity*(1-l.fee-l.maintenance)),initial)
  def test_no_leverage_over_two(self):
   with self.assertRaises(ValueError):MarginLedger().open(100,20,3)
  def test_equity_after_open(self):
