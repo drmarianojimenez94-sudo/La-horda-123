@@ -17,6 +17,7 @@ class Config:
     half_spread: float = 0.0003
     slippage: float = 0.0005
     learned_priors: tuple = ()
+    learned_model: tuple = ()
     enabled_strategies: tuple = ("trend", "breakout", "mean_reversion")
 
 def aggregate(bars, n):
@@ -74,6 +75,9 @@ def candidates(bars,config=Config()):
     for name,reward_risk,prior in proposals:
         if name not in config.enabled_strategies: continue
         prior=calibrated.get(name,prior)
+        if config.learned_model:
+            from learner_v4 import predict
+            prior=predict(config.learned_model,dict(strategy=name,regime=regime,stop_distance=distance,reward_risk=reward_risk,estimated_net=0))
         # Conservative baseline probability; not trained or validated.
         # This is a ranking proxy, NOT a statistically calibrated probability.
         costs=2*(config.fee+config.half_spread+config.slippage)
