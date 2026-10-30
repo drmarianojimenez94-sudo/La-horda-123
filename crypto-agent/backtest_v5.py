@@ -7,6 +7,9 @@ from specialists_v5 import specialists
 from backtest_v2 import load_data
 from meta_v5 import select
 
+def s_not_ready(order,exits,t):
+    return order.symbol not in exits or t>=exits[order.symbol]
+
 def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold_bars=36,models=None):
     times=sorted(set().union(*(set(series) for series in data.values())))
     if not times:raise ValueError("No bars")
@@ -21,6 +24,8 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
         if t>=start:
             for oid,o in list(p.orders.items()):
                 if o.status!="open" or o.symbol not in bars:continue
+                if o.side=="sell":continue  # exit orders are processed once below
+                if s_not_ready(o,exits,t):continue
                 paper_fill(p,oid,bars[o.symbol],conditions)
             for s,deadline in list(exits.items()):
                 if t>=deadline and p.positions.get(s,0)>1e-10:
@@ -52,6 +57,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
             proposals=select(proposals,models,exposure)
         for choice in proposals:
             s=choice["symbol"]
+            if s in exits or p.positions.get(s,0)>1e-10 or any(o.symbol==s and o.status=="open" for o in p.orders.values()):continue
             # Risk-limited allocation, no leverage or shorting.
             notional=min(p.cash*(choice.get("allocation_fraction",.1)),20.)
             if notional<5:continue
