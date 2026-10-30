@@ -6,6 +6,7 @@ from pathlib import Path
 from backtest_v2 import load_data
 from labels_v5 import label_opportunities,purged_split
 from meta_v5 import train,select
+from memory_reuse_v5 import previous_weights
 
 def preflight(data,train_days=45,cal_days=15,test_days=15):
     times=sorted(set().union(*(set(v) for v in data.values())))
@@ -16,7 +17,8 @@ def preflight(data,train_days=45,cal_days=15,test_days=15):
     train_end=times[day*train_days]
     cal_end=times[day*(train_days+cal_days)]
     test_end=times[min(len(times)-1,day*(train_days+cal_days+test_days)-1)]
-    models,counts=train(rows,train_end,cal_end,test_end)
+    models,counts=train(rows,train_end,cal_end,test_end,
+                        archived=previous_weights(train_end))
     _,calibration,_=purged_split(rows,train_end,cal_end,test_end)
     # Feasibility only on calibration rows, never test outcomes.
     calibrated_signals=[{"symbol":r["symbol"],**r} for r in calibration]
