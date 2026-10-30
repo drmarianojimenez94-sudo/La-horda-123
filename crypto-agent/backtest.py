@@ -50,7 +50,7 @@ def load():
   pairs[f.stem]={r['timestamp']:{k:float(r[k]) for k in ('open','high','low','close','volume')} for r in rows}
  return pairs
 def run(pairs,name,start,end):
- size,max_open,loss,zlim,tp,stop=PROFILES[name];cash=200.;positions={};trades=[];history={s:[] for s in pairs};last={};day='';base=200.;halt=False;halts=0;peak=200.;drawdown=0
+ size,max_open,loss,zlim,tp,stop=PROFILES[name];loss=MAX_DAILY_LOSS;tp=max(tp,MIN_NET_TARGET+2*(FEE+SPREAD/2+SLIP),MIN_REWARD_RISK*stop+2*(FEE+SPREAD/2+SLIP));cash=200.;positions={};trades=[];history={s:[] for s in pairs};last={};day='';base=200.;halt=False;halts=0;peak=200.;drawdown=0
  times=sorted({t for p in pairs.values() for t in p if start<=t<end})
  for t in times:
   bars={s:p[t] for s,p in pairs.items() if t in p}
@@ -75,7 +75,7 @@ def run(pairs,name,start,end):
   if not halt:
    for _,s,vol in sorted(candidates):
     if len(positions)>=max_open:break
-    allocation=size*(.5 if name=='adaptativa' and vol>.025 else 1)
+    allocation=min(size*(.5 if name=='adaptativa' and vol>.025 else 1),equity*MAX_RISK_PER_TRADE/(stop+2*(FEE+SPREAD/2+SLIP)))
     if cash<allocation:continue
     px=bars[s]['open']*(1+SPREAD/2+SLIP)
     qty=allocation/(px*(1+FEE))
