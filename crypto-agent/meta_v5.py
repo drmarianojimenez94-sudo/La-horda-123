@@ -31,8 +31,21 @@ def train(rows, train_end, calibration_end, test_end):
         models[name] = {"model": model, "calibration": calibration_model,
                         "model_brier":model_brier,"constant_brier":constant_brier,
                         "win": mean(wins), "loss": mean(losses)}
+    # Select a conservative entry threshold using calibration only, never OOS.
+    # Positive expectancy is mandatory; cap the historical fixed threshold at 0.18%.
+    positive=[]
+    for row in calibration:
+        m=models.get(row["strategy"])
+        if m is None:continue
+        p=calibrated_probability(predict(m["model"],row),m["calibration"])
+        edge=p*m["win"]-(1-p)*m["loss"]
+        if edge>0:positive.append(edge)
+    positive.sort()
+    threshold=max(.0001,min(.0018,positive[int(.75*(len(positive)-1))])) if positive else .0018
     return models, {"train": len(training), "calibration": len(calibration),
-                    "test": len(test)}
+                    "test": len(test), "calibration_positive":len(positive),
+                    "selected_threshold":threshold,
+                    "threshold_method":"positive_calibration_edge_75th_percentile"}
 
 def select(signals, models, exposure=None, limit=.4, per_asset=.15, threshold=.0018):
     exposure = dict(exposure or {})
