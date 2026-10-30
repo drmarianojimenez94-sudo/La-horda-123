@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 concurrency:
   group: v8-simulation-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   simulate:
     runs-on: ubuntu-latest
