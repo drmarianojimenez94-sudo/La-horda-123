@@ -122,7 +122,7 @@ def validate(data):
    scores.append((r["return_pct"]-0.5*r["max_drawdown_pct"],p))
   chosen=max(scores,key=lambda v:v[0])[1]
   result=simulate(data,chosen,start,end)
-  windows.append({"start":start,"end":end,"parameters":chosen,"training_score":round(max(scores)[0],4),"result":result})
+  windows.append({"start":start,"end":end,"parameters":chosen,"training_score":round(max(v[0] for v in scores),4),"result":result})
  if not windows:raise ValueError("Insufficient bars for out-of-sample windows")
  return {"method":"expanding training, non-overlapping 15-day holdouts; no future candles in signal","execution":"next-bar open; spread, slippage and fees; pessimistic stop-first on ambiguous OHLC bars","windows":windows,"aggregate_oos_return_pct":round(100*(math.prod(w["result"]["final"]/INITIAL for w in windows)-1),4),"note":"Research only. No order-book depth, partial exchange fills, funding or live execution modeled."}
 
