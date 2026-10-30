@@ -8,7 +8,7 @@ def generate(report_path,db_path,out_path,run_id="local",cutoff_ms=0):
     report=json.loads(Path(report_path).read_text())
     prior=prior_candidates(db_path,cutoff_ms)
     digest=store_run(report,db_path,run_id,cutoff_ms)
-    historical=[{"trained_until_ms":cutoff_ms-1,"ranked":p.get("validation_top",[])} for p in prior]
+    historical=[{"trained_until_ms":p["trained_until_ms"],"ranked":p.get("validation_top",[])} for p in prior]
     hints=causal_prior_weights(historical,cutoff_ms) if cutoff_ms>0 else {}
     chosen=report.get("selected")
     ranked=report.get("ranked",[])
