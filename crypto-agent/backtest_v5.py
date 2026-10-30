@@ -16,7 +16,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
     if not times:raise ValueError("No bars")
     start=start or times[0];end=end or times[-1]
     p=Portfolio(initial);history={s:[] for s in data}
-    exits={};curve=[];signals=[];last={};rejections={}
+    exits={};curve=[];signals=[];last={};rejections={};expectation_bins={"negative":0,"0_to_0.1pct":0,"0.1_to_0.18pct":0,"above_threshold":0}
     for t in times:
         if t>=end:break
         bars={s:series[t] for s,series in data.items() if t in series}
@@ -58,6 +58,11 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
             for item in diagnose(proposals,models,exposure):
                 reason=item["reason"]
                 rejections[reason]=rejections.get(reason,0)+1
+                value=item.get("expected_net")
+                if value is not None:
+                    bucket=("negative" if value<0 else "0_to_0.1pct" if value<.001 else
+                            "0.1_to_0.18pct" if value<.0018 else "above_threshold")
+                    expectation_bins[bucket]+=1
             proposals=select(proposals,models,exposure)
         for choice in proposals:
             s=choice["symbol"]
@@ -75,7 +80,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
     # Mark-to-market at end; do not invent final liquidation.
     return {"initial":initial,"final_equity":p.equity(last),"realized_pnl":p.realized_pnl,
             "fees":p.fees_paid,"fills":len(p.fills),"signals":len(signals),
-            "selection_reasons":rejections,
+            "selection_reasons":rejections,"expectation_distribution":expectation_bins,
             "open_positions":{s:q for s,q in p.positions.items() if q>1e-10},
             "equity_curve":curve,"ledger":[vars(f) for f in p.fills],
             "model":"V5 offline execution with calibrated specialists" if models is not None else "V5 offline execution foundation, untrained specialists"}
