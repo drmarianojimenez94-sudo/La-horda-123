@@ -51,14 +51,16 @@ def run(data,start,end,config=Config(),scenario=None):
                 exit_price=exit_fill["price"]
                 exit_qty=min(p["qty"],exit_fill["filled_notional"]/px) if px>0 else 0
                 proceeds=exit_qty*exit_price*(1-scenario.fee);cash+=proceeds
-                if exit_qty<p["qty"]:
-                    p["qty"]-=exit_qty
-                    p["entry_cost"]*=p["qty"]/(p["qty"]+exit_qty)
-                    continue
+                filled_cost=p["entry_cost"]*(exit_qty/p["qty"]) if p["qty"] else 0
+                remaining_qty=p["qty"]-exit_qty
                 ledger.append(dict(symbol=s,strategy=p["strategy"],regime=p["regime"],entry_time=p["entry_time"],exit_time=t,
-                                   entry=p["entry"],exit=exit_price,quantity=p["qty"],cost=p["entry_cost"],
-                                   proceeds=proceeds,pnl=proceeds-p["entry_cost"],reason=reason,stop_distance=p["stop_distance"],reward_risk=p["reward_risk"],estimated_net=p["estimated_net"]))
-                del positions[s]
+                                   entry=p["entry"],exit=exit_price,quantity=p["qty"],cost=filled_cost,
+                                   proceeds=proceeds,pnl=proceeds-filled_cost,reason=reason,stop_distance=p["stop_distance"],reward_risk=p["reward_risk"],estimated_net=p["estimated_net"]))
+                if remaining_qty>1e-12:
+                    p["qty"]=remaining_qty
+                    p["entry_cost"]-=filled_cost
+                else:
+                    del positions[s]
         equity=cash+sum(p["qty"]*bars[s]["close"] for s,p in positions.items() if s in bars)
         peak=max(peak,equity)
         drawdown=1-equity/peak
