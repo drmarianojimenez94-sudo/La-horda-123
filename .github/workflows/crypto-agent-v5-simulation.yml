@@ -3,13 +3,11 @@ on:
   workflow_dispatch:
     inputs:
       days:
-        description: 'Historical 5-minute candles (90, 180 or 365 days)'
+        description: 'Historical 5-minute candles (365 days; 4x the original 90-day baseline)'
         required: true
         type: choice
-        default: '90'
+        default: '365'
         options:
-          - '90'
-          - '180'
           - '365'
 jobs:
   simulation:
@@ -29,6 +27,7 @@ jobs:
           python -m unittest discover -s crypto-agent -p 'test_engine_v5.py' -v
           python -m unittest discover -s crypto-agent -p 'test_backtest_v5.py' -v
           python -m unittest discover -s crypto-agent -p 'test_meta_v5.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_diagnostics_v5.py' -v
       - name: Download historical crypto market data
         run: python crypto-agent/download_5m.py --days ${{ inputs.days }}
       - name: Train specialists and evaluate independent walk-forward windows
