@@ -73,6 +73,17 @@ def simulate(bars,c,start,end,initial=200.):
                 qty=allocation/(px*1.001)
                 fees+=qty*px*.001;cash-=allocation
                 position=(qty,allocation,px*(1-c["stop"]),px*(1+c["target"]),i+c["max_bars"])
+                # Entry is at current open: its stop may be hit within the SAME candle.
+                # Conservative OHLC assumption: stop takes precedence over target.
+                if b["low"]<=position[2] or b["high"]>=position[3]:
+                    raw=position[2] if b["low"]<=position[2] else position[3]
+                    exit_px=raw*(1-COST_PER_SIDE+.001)
+                    proceeds=qty*exit_px*(1-.001)
+                    fees+=qty*exit_px*.001
+                    cash+=proceeds
+                    wins+=int(proceeds>allocation)
+                    trades+=1
+                    position=None
     if position:
         px=bars[min(end,len(bars))-1]["close"]*(1-COST_PER_SIDE+.001)
         proceeds=position[0]*px*.999

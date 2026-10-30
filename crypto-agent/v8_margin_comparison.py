@@ -29,6 +29,13 @@ def margin_simulate(bars,c,start,end,leverage=1.):
                 account.open(entry,collateral,leverage)
                 stop=entry*(1-c["stop"]);target=entry*(1+c["target"])
                 deadline=i+c["max_bars"]
+                # Liquidation or stop can happen in the entry candle.
+                state=account.mark(b["high"],b["low"],b["close"],hours=0)
+                if state=="liquidation":deadline=None
+                elif b["low"]<=stop:
+                    account.close(min(b["open"],stop));deadline=None
+                elif b["high"]>=target:
+                    account.close(max(b["open"],target));deadline=None
     if account.position:account.close(bars[min(end,len(bars))-1]["close"])
     return {"leverage":leverage,"return_pct":100*(account.cash/200-1),
             "liquidations":account.liquidations,"fees":account.fees,
