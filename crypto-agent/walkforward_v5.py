@@ -8,6 +8,7 @@ from meta_v5 import train
 from diagnostics_v5 import calibration_diagnostics
 from labels_v5 import purged_split
 from backtest_v5 import run
+from champion_v5 import metrics,evaluate
 
 def validate(data,train_days=45,cal_days=15,test_days=15):
     times=sorted(set().union(*(set(v) for v in data.values())))
@@ -39,13 +40,19 @@ def validate(data,train_days=45,cal_days=15,test_days=15):
                         "calibration_by_specialist":calibration_diagnostics(calibration_rows,models),
                         "test_diagnostics_by_specialist":calibration_diagnostics(test_rows,models),
                         "selection_reasons":result["selection_reasons"],
+                        "expectation_distribution":result["expectation_distribution"],
+                        "baseline_comparison":{name:{"model_brier":m["model_brier"],
+                          "constant_brier":m["constant_brier"]} for name,m in models.items()},
                         "final_equity":result["final_equity"],
                         "return_pct":100*(result["final_equity"]/result["initial"]-1),
                         "fees":result["fees"],"fills":result["fills"],
                         "signals":result["signals"]})
-    return {"data_fingerprint":data_fingerprint,
+    report={"data_fingerprint":data_fingerprint,
             "method":"expanding purged training, independent calibration and disjoint OOS",
             "folds":results,"no_live_orders":True}
+    report["champion_candidate_metrics"]=metrics(report)
+    report["champion_decision"]=evaluate(report)
+    return report
 
 def main():
     report=validate(load_data())
