@@ -7,7 +7,7 @@ class SixMonthTests(unittest.TestCase):
   data={"BTCUSDT":{"1":{"open":100,"close":100},"2":{"open":101,"close":110}}}
   r=report(data)
   self.assertEqual(r["cash_return_pct"],0)
-  self.assertEqual(r["assets"]["BTCUSDT"]["buy_hold_return_pct"],10)
+  self.assertAlmostEqual(r["assets"]["BTCUSDT"]["buy_hold_return_pct"],10,places=8)
   self.assertIn("not_order_book",r["data_type"])
 
 if __name__=="__main__":unittest.main()
