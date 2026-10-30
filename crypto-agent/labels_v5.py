@@ -8,11 +8,11 @@ def label_opportunities(data,step=12,horizon=36,fee=.001,half_spread=.0003,slipp
     rows=[]
     for symbol,series in data.items():
         times=sorted(series)
-        for i in range(120,len(times)-horizon-1,step):
+        for i in range(120,len(times)-horizon,step):
             history=[series[t] for t in times[max(0,i-120):i+1]]
             for signal in specialists(history):
                 entry=series[times[i+1]]["open"]*(1+half_spread+slippage)
-                exit_price=series[times[i+horizon+1]]["open"]*(1-half_spread-slippage)
+                exit_price=series[times[i+horizon]]["open"]*(1-half_spread-slippage)
                 gross=(exit_price*(1-fee))/(entry*(1+fee))-1
                 rows.append({**signal,"symbol":symbol,"signal_time":times[i],
                     "entry_time":times[i+1],"label_end":times[i+horizon+1],
