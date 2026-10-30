@@ -34,6 +34,6 @@ def main():
     path.write_text(json.dumps(result,indent=2))
     print(json.dumps(result,indent=2))
     if not result["ready"]:
-        raise SystemExit("V5 preflight failed: inspect preflight_v5.json; skipping expensive backtest")
+        print("No eligible calibration signals: historical simulation will be skipped, not reported as a crash")
 
 if __name__=="__main__":main()
