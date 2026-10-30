@@ -1,0 +1,28 @@
+name: CryptoAgent V5 Champion Audit
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'training-memory/v5/runs/**'
+      - 'crypto-agent/champion_v5.py'
+      - 'crypto-agent/test_champion_v5.py'
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate promotion rules
+        run: python -m unittest discover -s crypto-agent -p 'test_champion_v5.py' -v
+      - name: Compare archived runs
+        run: python crypto-agent/champion_v5.py > champion-audit.json
+      - name: Upload comparison report
+        uses: actions/upload-artifact@v4
+        with:
+          name: crypto-agent-champion-audit
+          path: champion-audit.json
+          retention-days: 90
