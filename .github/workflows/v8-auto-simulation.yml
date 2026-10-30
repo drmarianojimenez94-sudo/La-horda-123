@@ -1,6 +1,7 @@
 name: V8 Automatic Strategy Simulation
 on:
-  pull_request:
+  push:
+    branches: [main]
     paths:
       - 'crypto-agent/v8_strategy_research.py'
       - 'crypto-agent/test_v8_strategy_research.py'
