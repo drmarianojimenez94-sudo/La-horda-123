@@ -3,7 +3,7 @@ Pure Python; no remote model, no live orders, no dependency on scikit-learn.
 """
 import math
 
-FEATURES=("bias","trend","breakout","reversion","bull","sideways","bear","stop","reward","estimated")
+FEATURES=("bias","trend","breakout","reversion","bull","sideways","bear","stop","reward")
 def vector(row):
     strategy=row.get("strategy")
     regime=row.get("regime")
@@ -11,8 +11,7 @@ def vector(row):
             float(strategy=="mean_reversion"),float(regime=="bull"),
             float(regime=="sideways"),float(regime=="bear"),
             min(5.,max(0.,float(row.get("stop_distance",.02))*50)),
-            min(5.,max(0.,float(row.get("reward_risk",2))/3)),
-            max(-3.,min(3.,float(row.get("estimated_net",0))*100)))
+            min(5.,max(0.,float(row.get("reward_risk",2))/3)))
 
 def sigmoid(x):
     x=max(-30.,min(30.,x))
