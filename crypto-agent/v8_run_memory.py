@@ -25,7 +25,7 @@ def prior_candidates(db_path,training_cutoff_ms):
     if not Path(db_path).exists():return []
     m=EventMemory(db_path)
     try:
-        return [{"run":x["version"],"selected":x["parameters"].get("selected"),
+        return [{"run":x["version"],"trained_until_ms":x["trained_until_ms"],"selected":x["parameters"].get("selected"),
                  "validation_top":x["metrics"].get("ranked",[])}
                 for x in m.models() if x["trained_until_ms"]<training_cutoff_ms]
     finally:m.close()
