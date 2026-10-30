@@ -11,7 +11,9 @@ class V5MetaTests(unittest.TestCase):
         {"signal_time":"03","label_end":"04","strategy":"trend","net_return":-.01,"label":0},
         {"signal_time":"05","label_end":"06","strategy":"trend","net_return":.02,"label":1}]
   models,counts=train(rows,"03","05","07")
-  self.assertEqual(counts,{"train":1,"calibration":1,"test":1})
+  self.assertEqual({k:counts[k] for k in ("train","calibration","test")},
+                   {"train":1,"calibration":1,"test":1})
+  self.assertGreater(counts["selected_threshold"],0)
   self.assertEqual(models,{})
  def test_short_history_rejected(self):
   with self.assertRaises(ValueError):validate({"BTC":{"a":{"close":100}}})
