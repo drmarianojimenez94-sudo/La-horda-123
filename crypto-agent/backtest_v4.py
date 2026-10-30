@@ -89,12 +89,8 @@ def validate(data):
             calibration_model=fit_platt(calibration_scores,[row["label"] for row in cal_rows])
         # Fail closed: without independent calibration do not trade.
         if calibration_model is None: enabled=()
-        if model is not None and calibration_model is not None:
-            # Use calibrated model probabilities in the trading gate.
-            from v4_extension import calibrated_probability
-            # Refit calibration is tracked separately; strategy inference uses raw logistic scores.
         config=replace(Config(),enabled_strategies=enabled,learned_priors=priors,
-                       learned_model=model or ())
+                       learned_model=model or (),calibration_model=calibration_model or ())
         # With no demonstrated edge, preserve cash rather than force trades.
         test=run(data,start,end,config)
         windows.append({"train_start":times[0],"train_end_exclusive":start,
