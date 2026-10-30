@@ -9,6 +9,9 @@ from statistics import mean,pstdev
 from backtest_v2 import load_data
 from v8_leverage_policy import leverage_scenarios
 from v8_unified_ledger import UnifiedSpotLedger
+from v9_diagnostics import trade_attribution, classify_regime, regime_validation, causal_prior_weights
+from v8_run_memory import prior_candidates
+import os
 
 FAMILIES=("trend_pullback","channel_breakout","momentum","mean_reversion","volatility_expansion")
 COST_PER_SIDE=.0018  # 0.10% fee + 0.03% half-spread + 0.05% slippage
@@ -87,9 +90,14 @@ def simulate(bars,c,start,end,initial=200.):
     return {"return_pct":100*(audit["equity"]/initial-1),"trades":trades,
             "win_rate":wins/trades if trades else None,
             "fees":audit["fees"],"max_drawdown_pct":dd*100,
-            "reconciled":audit["reconciled"]}
+            "reconciled":audit["reconciled"],"attribution":trade_attribution(ledger.journal,initial)}
 
-def evaluate(data):
+def evaluate(data, memory_path=None, cutoff_ms=None):
+    cutoff_ms = int(os.getenv("TRAIN_CUTOFF_MS","0")) if cutoff_ms is None else cutoff_ms
+    memory_path = memory_path or os.getenv("V8_MEMORY_PATH","crypto-agent/state/v8-research.sqlite3")
+    past = prior_candidates(memory_path,cutoff_ms) if cutoff_ms>0 else []
+    historical = [{"trained_until_ms":p["trained_until_ms"],"ranked":p["validation_top"]} for p in past]
+    prior_scores = causal_prior_weights(historical,cutoff_ms) if historical else {}
     strategies=universe();rows=[]
     for c in strategies:
         asset_results={}
@@ -101,23 +109,46 @@ def evaluate(data):
                                    "validation":simulate(bars,c,a,b),
                                    "test":simulate(bars,c,b,len(bars))}
         if not asset_results:continue
+        regimes=[]
+        for symbol,series in data.items():
+            bars=[series[t] for t in sorted(series)]
+            if len(bars)<1000:continue
+            a=int(len(bars)*.6);b=int(len(bars)*.8)
+            fold_size=max(1,(b-a)//3)
+            for start in range(a,b,fold_size):
+                end=min(start+fold_size,b)
+                if end-start<2:continue
+                result=simulate(bars,c,start,end)
+                regimes.append({"symbol":symbol,"regime":classify_regime(bars,start),
+                                "trades":result["trades"],"net_return_pct":result["return_pct"],
+                                "start":start,"end":end})
+        grouped=[]
+        for regime in ("bull","bear","sideways"):
+            subset=[x for x in regimes if x["regime"]==regime]
+            if subset:
+                grouped.append({"regime":regime,"trades":sum(x["trades"] for x in subset),
+                                "net_return_pct":sum(x["net_return_pct"] for x in subset)})
+        gate=regime_validation(grouped)
         vals=[r["validation"] for r in asset_results.values()]
         avg=mean(x["return_pct"] for x in vals)
         total=sum(x["trades"] for x in vals)
         dd=max(x["max_drawdown_pct"] for x in vals)
         rows.append({"id":c["id"],"family":c["family"],"params":c,
                      "validation_mean_pct":avg,"validation_trades":total,
-                     "validation_max_dd_pct":dd,"per_asset":asset_results})
+                     "validation_max_dd_pct":dd,"per_asset":asset_results,
+                     "regime_folds":regimes,"regime_gate":gate,"historical_hint":prior_scores.get(c["id"])})
     ranked=sorted(rows,key=lambda r:r["validation_mean_pct"],reverse=True)
     eligible=[r for r in ranked if r["validation_mean_pct"]>0 and
-              r["validation_trades"]>=20 and r["validation_max_dd_pct"]<=12]
+              r["validation_trades"]>=20 and r["validation_max_dd_pct"]<=12 and r["regime_gate"]["approved"]]
     chosen=eligible[0] if eligible else None
     leverage={symbol:leverage_scenarios(chosen["per_asset"][symbol]["validation"])
               for symbol in chosen["per_asset"]} if chosen else {}
     return {"leverage_research":leverage,"leverage_live_enabled":False,
             "data_type":"real_5m_OHLCV","candidates":len(strategies),
             "tested":len(rows),"selected":chosen["id"] if chosen else None,
-            "selection_policy":"validation_only_positive_net_min20_trades_max12pct_dd",
+            "selection_policy":"validation_only_positive_net_min20_trades_max12pct_dd_and_regime_gate",
+            "v9_memory_prior_runs":len(past),"v9_memory_used_for_ranking":bool(prior_scores),
+            "v9_memory_used_for_promotion":False,"v9_regime_gate_enabled":True,
             "selected_test_results":chosen["per_asset"] if chosen else None,
             "ranked":ranked,"cash_return_pct":0.0,"real_orders":False,
             "warning":"Multiple-hypothesis search increases overfitting risk; test results are descriptive only."}

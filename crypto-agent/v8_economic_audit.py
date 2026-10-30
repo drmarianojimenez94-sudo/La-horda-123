@@ -2,17 +2,22 @@
 import json,os
 from pathlib import Path
 from v8_run_memory import store_run,prior_candidates
+from v9_diagnostics import causal_prior_weights
 
 def generate(report_path,db_path,out_path,run_id="local",cutoff_ms=0):
     report=json.loads(Path(report_path).read_text())
     prior=prior_candidates(db_path,cutoff_ms)
     digest=store_run(report,db_path,run_id,cutoff_ms)
+    historical=[{"trained_until_ms":p["trained_until_ms"],"ranked":p.get("validation_top",[])} for p in prior]
+    hints=causal_prior_weights(historical,cutoff_ms) if cutoff_ms>0 else {}
     chosen=report.get("selected")
     ranked=report.get("ranked",[])
     summary={"run_id":str(run_id),"report_sha256":digest,
       "candidates_evaluated":report.get("tested"),
       "selected":chosen,"rejected_candidates":len(ranked)-int(chosen is not None),
       "cash_return_pct":0.,"prior_valid_runs":len(prior),
+      "v9_prior_ranking_hints":hints,
+      "v9_prior_hints_used_for_selection":False,
       "prior_selected":[x["selected"] for x in prior],
       "test_result":report.get("selected_test_results"),
       "selected_test_mean_return_pct":(sum(x["test"]["return_pct"] for x in report["selected_test_results"].values())/len(report["selected_test_results"]) if report.get("selected_test_results") else None),
@@ -22,6 +27,7 @@ def generate(report_path,db_path,out_path,run_id="local",cutoff_ms=0):
           for r in ranked[:10]],
       "selection_is_validation_only":True,
       "memory_reused_for_training":False,
+      "v9_regime_gate_integrated":False,
       "warning":"Archived candidates are compared, but coefficients are not retrained by this workflow."}
     Path(out_path).write_text(json.dumps(summary,indent=2))
     return summary
