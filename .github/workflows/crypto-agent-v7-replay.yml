@@ -1,5 +1,11 @@
 name: CryptoAgent V7 Offline Replay
 on:
+  pull_request:
+    paths:
+      - 'crypto-agent/replay_v7.py'
+      - 'crypto-agent/test_replay_v7.py'
+      - 'crypto-agent/synthetic_quotes_v7.py'
+      - '.github/workflows/crypto-agent-v7-replay.yml'
   workflow_dispatch:
     inputs:
       mode:
@@ -34,8 +40,8 @@ jobs:
           python -m unittest discover -s crypto-agent -p 'test_replay_v7.py' -v
       - name: Prepare quote dataset
         env:
-          MODE: ${{ inputs.mode }}
-          QUOTE_PATH: ${{ inputs.quote_path }}
+          MODE: ${{ inputs.mode || 'synthetic-smoke' }}
+          QUOTE_PATH: ${{ inputs.quote_path || 'crypto-agent/data/v7-quotes.jsonl' }}
         run: |
           if [ "$MODE" = "synthetic-smoke" ]; then
             python crypto-agent/synthetic_quotes_v7.py --output /tmp/v7-quotes.jsonl
