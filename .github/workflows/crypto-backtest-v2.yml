@@ -1,12 +1,22 @@
 name: Crypto Backtest V2 Audit
 on:
   workflow_dispatch:
+    inputs:
+      days:
+        description: 'Historical days (90, 180, 365)'
+        required: true
+        type: choice
+        default: '90'
+        options:
+          - '90'
+          - '180'
+          - '365'
 jobs:
   validate:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 45
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -15,7 +25,7 @@ jobs:
       - name: Run unit tests
         run: python -m unittest discover -s crypto-agent -p 'test_backtest_v2.py'
       - name: Download historical candles
-        run: python -c "import sys; sys.path.insert(0, 'crypto-agent'); import backtest; backtest.download()"
+        run: python crypto-agent/download_5m.py --days ${{ inputs.days }}
       - name: Run walk-forward audit
         run: python crypto-agent/backtest_v2.py
       - uses: actions/upload-artifact@v4
