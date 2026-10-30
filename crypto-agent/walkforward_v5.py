@@ -1,5 +1,6 @@
 """Walk-forward training, calibration and final OOS paper backtest."""
 import json
+import hashlib
 from pathlib import Path
 from backtest_v2 import load_data
 from labels_v5 import label_opportunities
@@ -13,6 +14,13 @@ def validate(data,train_days=45,cal_days=15,test_days=15):
     day=288
     if len(times)<day*(train_days+cal_days+test_days):
         raise ValueError("Insufficient 5m history for independent train/cal/test")
+    # Hash the exact OHLCV dataset to prevent comparing incompatible market histories.
+    digest=hashlib.sha256()
+    for symbol in sorted(data):
+        for timestamp in sorted(data[symbol]):
+            bar=data[symbol][timestamp]
+            digest.update(json.dumps([symbol,timestamp,bar["open"],bar["high"],bar["low"],bar["close"],bar["volume"]],separators=(",",":")).encode())
+    data_fingerprint=digest.hexdigest()
     rows=label_opportunities(data)
     results=[]
     for i in range(day*(train_days+cal_days),len(times)-day*test_days+1,day*test_days):
@@ -35,7 +43,8 @@ def validate(data,train_days=45,cal_days=15,test_days=15):
                         "return_pct":100*(result["final_equity"]/result["initial"]-1),
                         "fees":result["fees"],"fills":result["fills"],
                         "signals":result["signals"]})
-    return {"method":"expanding purged training, independent calibration and disjoint OOS",
+    return {"data_fingerprint":data_fingerprint,
+            "method":"expanding purged training, independent calibration and disjoint OOS",
             "folds":results,"no_live_orders":True}
 
 def main():
