@@ -1,0 +1,45 @@
+name: Crypto Agent V4 Walk Forward
+on:
+  pull_request:
+    paths:
+      - 'crypto-agent/**'
+      - '.github/workflows/crypto-agent-v4.yml'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Historical 5-minute candle period'
+        required: true
+        type: choice
+        default: '90'
+        options:
+          - '90'
+          - '180'
+          - '365'
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run V3 and V4 regression tests
+        run: |
+          python -m unittest discover -s crypto-agent -p "test_strategy_v3.py"
+          python -m unittest discover -s crypto-agent -p "test_strategy_v4.py"
+      - name: Download market history
+        run: python crypto-agent/download_5m.py --days ${{ inputs.days }}
+      - name: Run V4 expanding walk-forward backtest
+        run: python crypto-agent/backtest_v4.py
+      - name: Upload audit and transactions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crypto-agent-v4-results
+          path: |
+            crypto-agent/audit_v4.json
+            crypto-agent/trades_v4.csv
+          if-no-files-found: warn

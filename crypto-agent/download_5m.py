@@ -18,7 +18,7 @@ def download(days=90):
         count = 0
         with (folder / (symbol + ".csv")).open("w", newline="") as target:
             writer = csv.writer(target)
-            writer.writerow(["timestamp", "open", "high", "low", "close", "volume"])
+            writer.writerow(["timestamp", "open", "high", "low", "close", "volume", "quote_volume", "trade_count", "taker_buy_base", "taker_buy_quote"])
             for offset in range(days):
                 day = start + datetime.timedelta(days=offset)
                 filename = symbol + "-5m-" + day.isoformat() + ".zip"
@@ -34,7 +34,7 @@ def download(days=90):
                             if stamp > 10**14:
                                 stamp //= 1000
                             ts = datetime.datetime.fromtimestamp(stamp / 1000, datetime.timezone.utc).isoformat()
-                            writer.writerow([ts, *row[1:6]])
+                            writer.writerow([ts, *row[1:6], row[7], row[8], row[9], row[10]])
                             count += 1
         if count < days * 250:
             raise RuntimeError("Insufficient candles for " + symbol)
