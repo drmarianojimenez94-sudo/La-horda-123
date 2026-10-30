@@ -20,6 +20,11 @@ class Config:
     learned_model: tuple = ()
     calibration_model: tuple = ()
     enabled_strategies: tuple = ("trend", "breakout", "mean_reversion")
+    breakout_volume_ratio: float = 1.3
+    breakout_max_extension: float = 0.008
+    breakout_retest_tolerance: float = 0.004
+    breakout_min_quote_volume: float = 100000.0
+    breakout_max_range: float = 0.025
 
 def aggregate(bars, n):
     """Build completed higher-timeframe OHLCV bars from chronological 5m candles."""
@@ -60,7 +65,18 @@ def candidates(bars,config=Config()):
     atr=statistics.fmean(max(b["high"]-b["low"],abs(b["high"]-p["close"]),abs(b["low"]-p["close"])) for p,b in zip(bars[-145:-1],bars[-144:]))
     distance=max(0.012,min(0.05,2*atr/price))
     trend=statistics.fmean(h[-12:])>statistics.fmean(h[-48:])
-    breakout=price>max(c[-49:-1])
+    # Require a prior confirmed break followed by a close above the retested level.
+    level=max(c[-62:-14])
+    previous_break=max(c[-13:-1])>level
+    retest=min(b["low"] for b in bars[-12:])<=level*(1+config.breakout_retest_tolerance)
+    relative_volume=bars[-1]["volume"]/max(1e-12,statistics.fmean(b["volume"] for b in bars[-49:-1]))
+    quote_volume=float(bars[-1].get("quote_volume",price*bars[-1]["volume"]))
+    range_fraction=(bars[-1]["high"]-bars[-1]["low"])/price
+    breakout=(previous_break and retest and price>level and
+              (price/level-1)<=config.breakout_max_extension and
+              relative_volume>=config.breakout_volume_ratio and
+              quote_volume>=config.breakout_min_quote_volume and
+              range_fraction<=config.breakout_max_range)
     mean=statistics.fmean(c[-48:])
     sd=statistics.pstdev(c[-48:])
     z=(price-mean)/sd if sd else 0
