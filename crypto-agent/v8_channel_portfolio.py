@@ -49,9 +49,18 @@ def research(data):
     rows.sort(key=lambda x:x["validation"]["return_pct"],reverse=True)
     eligible=[x for x in rows if x["validation"]["return_pct"]>0
               and x["validation"]["trades"]>=8 and x["validation"]["drawdown_pct"]<8]
-    chosen=eligible[0] if eligible else None
+    # Robustness: require nonnegative performance in at least two earlier disjoint periods.
+    chosen=None;stability=[]
+    for candidate in eligible:
+        tests=[simulate(data,candidate["lookback"],candidate["volume"],candidate["mode"],a,b)
+               for a,b in ((.2,.4),(.4,.6),(.6,.8))]
+        if sum(x["return_pct"]>0 for x in tests)>=2:
+            chosen=candidate
+            stability=[{k:v for k,v in x.items() if k!="ledger"} for x in tests]
+            break
     final=simulate(data,chosen["lookback"],chosen["volume"],chosen["mode"],.8,1.) if chosen else None
     return {"variants":len(rows),"ranking":rows,"selected":chosen,"final_test":final,
+            "stability_periods":stability,
             "shared_cash":True,"paper_only":True}
 if __name__=="__main__":
     r=research(load_data())
