@@ -23,12 +23,12 @@ def sigmoid(x):
     x=max(-30.,min(30.,x))
     return 1/(1+math.exp(-x))
 
-def fit(trades,min_samples=40,epochs=300,learning_rate=.08,regularization=.08):
+def fit(trades,min_samples=40,epochs=300,learning_rate=.08,regularization=.08,initial_weights=None):
     samples=[(vector(t),1. if float(t["pnl"])>0 else 0.) for t in trades
              if t.get("strategy") in ("trend","breakout","mean_reversion")
              and "pnl" in t]
     if len(samples)<min_samples:return None
-    weights=[0.]*len(FEATURES)
+    weights=list(initial_weights) if initial_weights is not None and len(initial_weights)==len(FEATURES) else [0.]*len(FEATURES)
     for _ in range(epochs):
         gradients=[0.]*len(weights)
         for features,label in samples:
