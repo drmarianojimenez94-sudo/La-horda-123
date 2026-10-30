@@ -7,6 +7,7 @@ import json,math
 from statistics import mean,pstdev
 from pathlib import Path
 from backtest_v2 import load_data
+from strategy_safety_v7 import choose_with_validation,prefix_invariance
 
 FEE=.001
 FRICTION=.0008
@@ -113,13 +114,16 @@ def tournament(data,train_fraction=.6,validation_fraction=.2):
     # Select only with validation, never test. Do not declare a champion if cash wins.
     winner=next((r["strategy"] for r in ranking if r["strategy"]!="cash"
                  and r["validation_mean_return_pct"]>0 and r["validation_trades"]>=10),None)
-    return {"source":"real_5m_ohlcv","execution":"next_open_with_fees_spread_slippage",
+    checks={symbol:prefix_invariance(signals,[series[t] for t in sorted(series)],
+                 [120,160,200,250]) for symbol,series in data.items()}
+    return {"lookahead_checks":checks,"source":"real_5m_ohlcv","execution":"next_open_with_fees_spread_slippage",
             "selection_only_on_validation":True,"selected_candidate":winner,
             "ranking":ranking,"per_asset":results,
             "test_is_report_only":True,"profitability_guaranteed":False}
 
 if __name__=="__main__":
     result=tournament(load_data())
+    result["validation_risk_selection"]=choose_with_validation(result)
     path=Path("crypto-agent/strategy_tournament_v7.json")
     path.write_text(json.dumps(result,indent=2))
     print(json.dumps({"selected_candidate":result["selected_candidate"],"ranking":result["ranking"]},indent=2))
