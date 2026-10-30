@@ -30,6 +30,7 @@ jobs:
         run: |
           python -m unittest discover -s crypto-agent -p "test_strategy_v3.py"
           python -m unittest discover -s crypto-agent -p "test_strategy_v4.py"
+          python -m unittest discover -s crypto-agent -p "test_validation_v4.py"
       - name: Download market history
         run: python crypto-agent/download_5m.py --days ${{ inputs.days }}
       - name: Run V4 expanding walk-forward backtest
