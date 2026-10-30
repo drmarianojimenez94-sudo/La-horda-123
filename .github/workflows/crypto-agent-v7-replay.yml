@@ -1,0 +1,62 @@
+name: CryptoAgent V7 Offline Replay
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "synthetic-smoke only; historical quotes require a real JSONL dataset"
+        type: choice
+        required: true
+        default: synthetic-smoke
+        options:
+          - synthetic-smoke
+          - repository-jsonl
+      quote_path:
+        description: "Repository-relative real quote JSONL path for repository-jsonl mode"
+        required: false
+        default: crypto-agent/data/v7-quotes.jsonl
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile and test
+        run: |
+          python -m compileall -q crypto-agent
+          python -m unittest discover -s crypto-agent -p 'test_event_v7.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_event_learning_v7.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_brain_v7.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_replay_v7.py' -v
+      - name: Prepare quote dataset
+        env:
+          MODE: ${{ inputs.mode }}
+          QUOTE_PATH: ${{ inputs.quote_path }}
+        run: |
+          if [ "$MODE" = "synthetic-smoke" ]; then
+            python crypto-agent/synthetic_quotes_v7.py --output /tmp/v7-quotes.jsonl
+            echo "DATA_KIND=synthetic-smoke" >> "$GITHUB_ENV"
+          else
+            case "$QUOTE_PATH" in crypto-agent/data/*.jsonl) ;; *) echo "Invalid dataset path"; exit 1;; esac
+            test -f "$QUOTE_PATH" || { echo "Real quote dataset missing"; exit 1; }
+            cp "$QUOTE_PATH" /tmp/v7-quotes.jsonl
+            echo "DATA_KIND=historical-quotes" >> "$GITHUB_ENV"
+          fi
+      - name: Run chronological paper replay
+        run: |
+          python crypto-agent/replay_v7.py --quotes /tmp/v7-quotes.jsonl --memory /tmp/v7-memory.sqlite3 --output crypto-agent/v7-replay-results.json
+          python -c "import json,os; p='crypto-agent/v7-replay-results.json'; r=json.load(open(p)); r['data_kind']=os.environ['DATA_KIND']; r['profitability_verified']=False; open(p,'w').write(json.dumps(r,indent=2))"
+      - name: Upload results and memory snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crypto-agent-v7-replay
+          path: |
+            crypto-agent/v7-replay-results.json
+            /tmp/v7-memory.sqlite3
+          if-no-files-found: warn
+          retention-days: 30
