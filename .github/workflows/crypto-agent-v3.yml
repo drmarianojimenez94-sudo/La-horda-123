@@ -1,0 +1,38 @@
+name: Crypto Agent V3 Backtest
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Historical period'
+        type: choice
+        required: true
+        default: '90'
+        options:
+          - '90'
+          - '180'
+          - '365'
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run regression tests
+        run: python -m unittest discover -s crypto-agent -p "test_strategy_v3.py"
+      - name: Download 5m history
+        run: python crypto-agent/download_5m.py --days ${{ inputs.days }}
+      - name: Run V3 out-of-sample backtest
+        run: python crypto-agent/backtest_v3.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: crypto-agent-v3-results
+          path: |
+            crypto-agent/audit_v3.json
+            crypto-agent/trades_v3.csv
+          if-no-files-found: warn
