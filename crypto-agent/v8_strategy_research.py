@@ -9,6 +9,7 @@ from statistics import mean,pstdev
 from backtest_v2 import load_data
 from v8_leverage_policy import leverage_scenarios
 from v8_unified_ledger import UnifiedSpotLedger
+from v8_adaptive_selector import classify, select
 
 FAMILIES=("trend_pullback","channel_breakout","momentum","mean_reversion","volatility_expansion")
 COST_PER_SIDE=.0018  # 0.10% fee + 0.03% half-spread + 0.05% slippage
