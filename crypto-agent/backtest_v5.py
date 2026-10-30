@@ -6,6 +6,7 @@ from paper_v5 import paper_fill,MarketConditions
 from specialists_v5 import specialists
 from backtest_v2 import load_data
 from meta_v5 import select
+from diagnostics_v5 import diagnose
 
 def s_not_ready(order,exits,t):
     return order.symbol not in exits or t>=exits[order.symbol]
@@ -15,7 +16,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
     if not times:raise ValueError("No bars")
     start=start or times[0];end=end or times[-1]
     p=Portfolio(initial);history={s:[] for s in data}
-    exits={};curve=[];signals=[];last={}
+    exits={};curve=[];signals=[];last={};rejections={}
     for t in times:
         if t>=end:break
         bars={s:series[t] for s,series in data.items() if t in series}
@@ -54,6 +55,9 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
         if models is not None:
             current_equity=p.equity(last)
             exposure={s:q*last[s]/current_equity for s,q in p.positions.items() if q>0 and current_equity>0}
+            for item in diagnose(proposals,models,exposure):
+                reason=item["reason"]
+                rejections[reason]=rejections.get(reason,0)+1
             proposals=select(proposals,models,exposure)
         for choice in proposals:
             s=choice["symbol"]
@@ -71,6 +75,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
     # Mark-to-market at end; do not invent final liquidation.
     return {"initial":initial,"final_equity":p.equity(last),"realized_pnl":p.realized_pnl,
             "fees":p.fees_paid,"fills":len(p.fills),"signals":len(signals),
+            "selection_reasons":rejections,
             "open_positions":{s:q for s,q in p.positions.items() if q>1e-10},
             "equity_curve":curve,"ledger":[vars(f) for f in p.fills],
             "model":"V5 offline execution with calibrated specialists" if models is not None else "V5 offline execution foundation, untrained specialists"}
