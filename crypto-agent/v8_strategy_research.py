@@ -33,7 +33,9 @@ def signal(bars,i,c):
     z=(price-mean(x["close"] for x in earlier))/max(sd,1e-9)
     family=c["family"]
     if family=="trend_pullback":return fast>slow*1.002 and price<=fast*1.002 and price>=slow
-    if family=="channel_breakout":return fast>slow and price>hi and relative>=c["volume_min"]
+    if family=="channel_breakout":
+        from v8_channel_signals import confirmed
+        return fast>slow*.998 and confirmed(bars,i,c["lookback"],max(1.05,c["volume_min"]*.9))
     if family=="momentum":return fast>slow and price/earlier[0]["close"]-1>.004+.001*k_from(c) and relative>1
     if family=="mean_reversion":return z<-(1.5+.1*k_from(c)) and fast>=slow*.99
     if family=="volatility_expansion":
