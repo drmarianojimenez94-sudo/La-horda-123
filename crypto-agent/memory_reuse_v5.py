@@ -15,7 +15,7 @@ def previous_weights(cutoff,root="training-memory/v5/runs"):
             for fold in report.get("folds",[]):
                 # Calibration and training of the old snapshot must both precede new training.
                 completed=fold.get("cal_end")
-                if not completed or completed>=cutoff:continue
+                if not completed or completed>cutoff:continue
                 for name,snapshot in fold.get("model_snapshots",{}).items():
                     weights=snapshot.get("weights",[])
                     if len(weights)!=len(FEATURES):continue
