@@ -23,6 +23,7 @@ jobs:
           python -m unittest discover -s crypto-agent -p 'test_v8_strategy_research.py' -v
           python -m unittest discover -s crypto-agent -p 'test_v8_leverage_policy.py' -v
           python -m unittest discover -s crypto-agent -p 'test_v8_margin_ledger.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_v8_margin_comparison.py' -v
       - name: Download 90 days real BTC and ETH
         run: python crypto-agent/download_5m.py --days 90 --symbols BTCUSDT,ETHUSDT
       - name: Simulate all 50 hypotheses
