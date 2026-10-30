@@ -126,7 +126,7 @@ def run(pairs,name,start,end,warmup_start=None):
   candidates=[]
   for s,b in bars.items():
    h=history[s]
-   if len(h)<168 or s in positions or b['volume']<=0:continue
+   if len(h)<168 or s in positions:continue
    fast=statistics.fmean(h[-24:]);slow=statistics.fmean(h[-168:])
    vol=statistics.pstdev(h[-48:])/max(statistics.fmean(h[-48:]),1e-9)
    momentum=h[-1]/h[-7]-1
