@@ -8,6 +8,7 @@ from pathlib import Path
 from statistics import mean,pstdev
 from backtest_v2 import load_data
 from v8_leverage_policy import leverage_scenarios
+from v8_unified_ledger import UnifiedSpotLedger
 
 FAMILIES=("trend_pullback","channel_breakout","momentum","mean_reversion","volatility_expansion")
 COST_PER_SIDE=.0018  # 0.10% fee + 0.03% half-spread + 0.05% slippage
@@ -49,50 +50,44 @@ def signal(bars,i,c):
 def k_from(c):return int(c["id"].split("-")[-1])
 
 def simulate(bars,c,start,end,initial=200.):
-    cash=initial;position=None;trades=0;wins=0;fees=0.;peak=initial;dd=0.
-    for i in range(start,min(end,len(bars))):
-        b=bars[i]
-        if position:
-            qty,entry_cost,stop,target,deadline=position
-            op=b["open"]
+    """Single-asset research adapter to canonical shared execution ledger."""
+    ledger=UnifiedSpotLedger(cash=initial)
+    symbol="RESEARCH"
+    stop=target=deadline=None
+    peak=initial;dd=0.;wins=0;trades=0
+    end=min(end,len(bars))
+    for i in range(start,end):
+        bar=bars[i]
+        if symbol in ledger.positions:
+            op=bar["open"]
             if op<=stop:raw=op
             elif op>=target:raw=op
-            elif b["low"]<=stop:raw=stop
-            elif b["high"]>=target:raw=target
-            elif i>=deadline or i==end-1:raw=b["close"]
+            elif bar["low"]<=stop:raw=stop
+            elif bar["high"]>=target:raw=target
+            elif i>=deadline or i==end-1:raw=bar["close"]
             else:raw=None
             if raw is not None:
-                px=raw*(1-COST_PER_SIDE+.001)
-                proceeds=qty*px*(1-.001)
-                fees+=qty*px*.001;cash+=proceeds
-                wins+=int(proceeds>entry_cost);trades+=1;position=None
-        equity=cash+(position[0]*b["close"] if position else 0)
+                pnl=ledger.sell(symbol,raw,time=i,reason="stop_target_or_timeout")
+                trades+=1;wins+=int(pnl>0)
+        equity=ledger.equity({symbol:bar["close"]})
         peak=max(peak,equity);dd=max(dd,1-equity/peak)
-        if position is None and i>start and i<min(end,len(bars))-1 and signal(bars,i-1,c):
-            allocation=min(20.,cash*.1)
-            px=b["open"]*(1+COST_PER_SIDE-.001)
-            if allocation>=5 and px>0:
-                qty=allocation/(px*1.001)
-                fees+=qty*px*.001;cash-=allocation
-                position=(qty,allocation,px*(1-c["stop"]),px*(1+c["target"]),i+c["max_bars"])
-                # Entry is at current open: its stop may be hit within the SAME candle.
-                # Conservative OHLC assumption: stop takes precedence over target.
-                if b["low"]<=position[2] or b["high"]>=position[3]:
-                    raw=position[2] if b["low"]<=position[2] else position[3]
-                    exit_px=raw*(1-COST_PER_SIDE+.001)
-                    proceeds=qty*exit_px*(1-.001)
-                    fees+=qty*exit_px*.001
-                    cash+=proceeds
-                    wins+=int(proceeds>allocation)
-                    trades+=1
-                    position=None
-    if position:
-        px=bars[min(end,len(bars))-1]["close"]*(1-COST_PER_SIDE+.001)
-        proceeds=position[0]*px*.999
-        fees+=position[0]*px*.001;cash+=proceeds
-        trades+=1;wins+=int(proceeds>position[1])
-    return {"return_pct":100*(cash/initial-1),"trades":trades,"win_rate":wins/trades if trades else None,
-            "fees":fees,"max_drawdown_pct":100*dd}
+        if symbol not in ledger.positions and i>start and i<end-1 and signal(bars,i-1,c):
+            if ledger.buy(symbol,bar["open"],{symbol:bar["open"]},notional_cap=min(20.,ledger.cash*.1),time=i):
+                entry=ledger.positions[symbol]["entry"]
+                stop=entry*(1-c["stop"]);target=entry*(1+c["target"])
+                deadline=i+c["max_bars"]
+                if bar["low"]<=stop or bar["high"]>=target:
+                    raw=stop if bar["low"]<=stop else target
+                    pnl=ledger.sell(symbol,raw,time=i,reason="entry_candle")
+                    trades+=1;wins+=int(pnl>0)
+    if symbol in ledger.positions:
+        pnl=ledger.sell(symbol,bars[end-1]["close"],time=end-1,reason="window_end")
+        trades+=1;wins+=int(pnl>0)
+    audit=ledger.reconcile({})
+    return {"return_pct":100*(audit["equity"]/initial-1),"trades":trades,
+            "win_rate":wins/trades if trades else None,
+            "fees":audit["fees"],"max_drawdown_pct":dd*100,
+            "reconciled":audit["reconciled"]}
 
 def evaluate(data):
     strategies=universe();rows=[]
