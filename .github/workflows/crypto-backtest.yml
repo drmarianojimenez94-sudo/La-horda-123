@@ -17,8 +17,13 @@ jobs:
         with:
           python-version: '3.11'
       - name: Download and run 90-day backtest
-        run: python crypto-agent/backtest.py | tee crypto-agent/run.log
-      - name: Upload results
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u crypto-agent/backtest.py 2>&1 | tee crypto-agent/run.log
+          test -s crypto-agent/report.json
+          python -c "import json; p=json.load(open('crypto-agent/report.json')); assert len(p['holdout'])==3; print('Validated three holdout results')"
+      - name: Upload results and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
