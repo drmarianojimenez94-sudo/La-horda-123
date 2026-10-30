@@ -18,6 +18,7 @@ class Config:
     slippage: float = 0.0005
     learned_priors: tuple = ()
     learned_model: tuple = ()
+    calibration_model: tuple = ()
     enabled_strategies: tuple = ("trend", "breakout", "mean_reversion")
 
 def aggregate(bars, n):
@@ -78,8 +79,10 @@ def candidates(bars,config=Config()):
         if config.learned_model:
             from learner_v4 import predict
             prior=predict(config.learned_model,dict(strategy=name,regime=regime,stop_distance=distance,reward_risk=reward_risk,estimated_net=0))
-        # Conservative baseline probability; not trained or validated.
-        # This is a ranking proxy, NOT a statistically calibrated probability.
+            if config.calibration_model:
+                from v4_extension import calibrated_probability
+                prior=calibrated_probability(prior,config.calibration_model)
+        # V4 applies the held-out Platt calibration before the expected-value gate.
         costs=2*(config.fee+config.half_spread+config.slippage)
         expected=prior*(distance*reward_risk)-(1-prior)*distance-costs
         output.append(dict(strategy=name,regime=regime,stop_distance=distance,
