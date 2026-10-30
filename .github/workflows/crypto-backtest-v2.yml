@@ -12,6 +12,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Run unit tests
+        run: python -m unittest discover -s crypto-agent -p 'test_backtest_v2.py'
       - name: Download historical candles
         run: python -c "import sys; sys.path.insert(0, 'crypto-agent'); import backtest; backtest.download()"
       - name: Run walk-forward audit
