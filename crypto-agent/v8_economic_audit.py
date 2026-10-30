@@ -15,6 +15,8 @@ def generate(report_path,db_path,out_path,run_id="local",cutoff_ms=0):
       "cash_return_pct":0.,"prior_valid_runs":len(prior),
       "prior_selected":[x["selected"] for x in prior],
       "test_result":report.get("selected_test_results"),
+      "selected_test_mean_return_pct":(sum(x["test"]["return_pct"] for x in report["selected_test_results"].values())/len(report["selected_test_results"]) if report.get("selected_test_results") else None),
+      "selected_test_total_fees":(sum(x["test"]["fees"] for x in report["selected_test_results"].values()) if report.get("selected_test_results") else None),
       "top_validation":[{"id":r["id"],"validation_mean_pct":r["validation_mean_pct"],
           "trades":r["validation_trades"],"max_drawdown_pct":r["validation_max_dd_pct"]}
           for r in ranked[:10]],
