@@ -49,15 +49,16 @@ def load():
   if len(rows)<100:continue
   pairs[f.stem]={r['timestamp']:{k:float(r[k]) for k in ('open','high','low','close','volume')} for r in rows}
  return pairs
-def run(pairs,name,start,end):
+def run(pairs,name,start,end,warmup_start=None):
  cash=200.;positions={};trades=[];history={s:[] for s in pairs};last={}
  day='';day_base=200.;halt=False;halts=0;peak=200.;drawdown=0.
  weekly_closed=[];weekly_scale=1.;week_key=None;weekly_reviews=[]
  cost=FEE+SPREAD/2+SLIP
  limits={'conservadora':(2,.20),'adaptativa':(3,.30),'agresiva':(4,.40)}
  max_open,max_exposure=limits[name]
- times=sorted({t for p in pairs.values() for t in p if start<=t<end})
+ times=sorted({t for p in pairs.values() for t in p if (warmup_start or start)<=t<end})
  for t in times:
+  active=t>=start
   bars={s:p[t] for s,p in pairs.items() if t in p}
   # Weekly walk-forward adjustment: use only trades closed before this bar.
   week=datetime.date.fromisoformat(t[:10]).isocalendar()[:2]
@@ -95,10 +96,10 @@ def run(pairs,name,start,end):
   equity=mark()
   if not halt and equity<=day_base*(1-MAX_DAILY_LOSS):halt=True;halts+=1
   if halt:
-   # Circuit breaker liquidates at available open, not an imaginary stop price.
+   # Liquidation is scheduled for the NEXT bar open, never a past open.
    for s,p in list(positions.items()):
     if s in bars:
-     received=p['qty']*bars[s]['open']*(1-cost)
+     received=p['qty']*bars[s]['close']*(1-cost)
      cash+=received;trades.append(received-p['cost']);weekly_closed.append((t,received-p['cost']));del positions[s]
   candidates=[]
   for s,b in bars.items():
@@ -115,7 +116,7 @@ def run(pairs,name,start,end):
    else:
     signal=trend and h[-1]>=max(h[-24:]) and momentum>.003
    if signal and vol>.002:candidates.append((momentum,s,vol))
-  if not halt:
+  if not halt and active:
    for _,s,vol in sorted(candidates,reverse=True):
     if len(positions)>=max_open:break
     distance=max(.012,min(.04,vol*1.5))
@@ -144,6 +145,6 @@ if __name__=='__main__':
  report={'pairs':list(pairs),'split':split,'training':[],'holdout':[],'disclaimer':'Backtest aproximado, no modela libro de órdenes ni ejecuciones parciales.'}
  for n in PROFILES:
   report['training'].append(run(pairs,n,dates[0],split))
-  report['holdout'].append(run(pairs,n,split,dates[-1]+'z'))
+  report['holdout'].append(run(pairs,n,split,dates[-1]+'z',warmup_start=dates[0]))
  print(json.dumps(report,indent=2))
  Path('crypto-agent/report.json').write_text(json.dumps(report,indent=2))
