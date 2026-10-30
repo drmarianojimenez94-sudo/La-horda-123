@@ -16,6 +16,8 @@ class Config:
     fee: float = 0.001
     half_spread: float = 0.0003
     slippage: float = 0.0005
+    learned_priors: tuple = ()
+    enabled_strategies: tuple = ("trend", "breakout", "mean_reversion")
 
 def aggregate(bars, n):
     """Build completed higher-timeframe OHLCV bars from chronological 5m candles."""
@@ -68,7 +70,10 @@ def candidates(bars,config=Config()):
     if regime=="sideways" and z< -1.8:
         proposals.append(("mean_reversion",1.7,0.48))
     output=[]
+    calibrated=dict(config.learned_priors)
     for name,reward_risk,prior in proposals:
+        if name not in config.enabled_strategies: continue
+        prior=calibrated.get(name,prior)
         # Conservative baseline probability; not trained or validated.
         # This is a ranking proxy, NOT a statistically calibrated probability.
         costs=2*(config.fee+config.half_spread+config.slippage)
