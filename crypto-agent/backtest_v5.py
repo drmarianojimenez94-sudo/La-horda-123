@@ -30,6 +30,10 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
                 if s_not_ready(o,exits,t):continue
                 paper_fill(p,oid,bars[o.symbol],conditions)
             for s,deadline in list(exits.items()):
+                if t>=deadline:
+                    for oid,o in list(p.orders.items()):
+                        if o.symbol==s and o.side=="buy" and o.status=="open":
+                            p.cancel(oid)
                 if t>=deadline and p.positions.get(s,0)>1e-10:
                     # Cancel any residual buy before liquidating.
                     for oid,o in list(p.orders.items()):
@@ -91,6 +95,9 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
             # Exit after at least hold_bars global 5-minute steps.
             idx=time_index[t]
             exits[s]=times[min(idx+hold_bars,len(times)-1)]
+    # Cancel residual entry orders at the evaluation boundary.
+    for oid,o in list(p.orders.items()):
+        if o.status=="open" and o.side=="buy":p.cancel(oid)
     # Mark-to-market at end; do not invent final liquidation.
     return {"initial":initial,"final_equity":p.equity(last),"realized_pnl":p.realized_pnl,
             "fees":p.fees_paid,"fills":len(p.fills),"signals":len(signals),
