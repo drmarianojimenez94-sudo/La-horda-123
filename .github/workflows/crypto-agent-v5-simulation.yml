@@ -1,0 +1,48 @@
+name: CryptoAgent V5 Historical Simulation
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Historical 5-minute candles (90, 180 or 365 days)'
+        required: true
+        type: choice
+        default: '90'
+        options:
+          - '90'
+          - '180'
+          - '365'
+jobs:
+  simulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run V5 unit and integration tests
+        run: |
+          python -m unittest discover -s crypto-agent -p 'test_engine_v5.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_backtest_v5.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_meta_v5.py' -v
+      - name: Download historical crypto market data
+        run: python crypto-agent/download_5m.py --days ${{ inputs.days }}
+      - name: Train specialists and evaluate independent walk-forward windows
+        run: python crypto-agent/walkforward_v5.py
+      - name: Run full paper execution and export fills
+        run: python crypto-agent/backtest_v5.py
+      - name: Upload downloadable results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crypto-agent-v5-simulation-results
+          path: |
+            crypto-agent/audit_v5_walkforward.json
+            crypto-agent/audit_v5.json
+            crypto-agent/fills_v5.csv
+          if-no-files-found: warn
+          retention-days: 90
