@@ -17,7 +17,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
     start=start or times[0];end=end or times[-1]
     p=Portfolio(initial);history={s:[] for s in data}
     time_index={t:i for i,t in enumerate(times)}
-    exits={};curve=[];signals=[];last={};rejections={};daily_entries={};expectation_bins={"negative":0,"0_to_0.1pct":0,"0.1_to_0.18pct":0,"above_threshold":0}
+    exits={};curve=[];signals=[];last={};rejections={};daily_entries={};strategy_for_asset={};specialist_performance={};expectation_bins={"negative":0,"0_to_0.1pct":0,"0.1_to_0.18pct":0,"above_threshold":0}
     for t in times:
         if t>=end:break
         bars={s:series[t] for s,series in data.items() if t in series}
@@ -38,7 +38,17 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
                     if existing is None:
                         existing=f"sell:{s}:{t}"
                         p.place(existing,s,"sell",p.available_quantity(s))
-                    if s in bars:paper_fill(p,existing,bars[s],conditions)
+                    if s in bars:
+                        before=p.realized_pnl
+                        fill=paper_fill(p,existing,bars[s],conditions)
+                        if fill is not None:
+                            name=strategy_for_asset.get(s,"unknown")
+                            stats=specialist_performance.setdefault(name,{"completed_fills":0,"realized_pnl":0.0,"wins":0,"losses":0})
+                            delta=p.realized_pnl-before
+                            stats["completed_fills"]+=1
+                            stats["realized_pnl"]+=delta
+                            stats["wins"]+=int(delta>0)
+                            stats["losses"]+=int(delta<0)
                 if p.positions.get(s,0)<=1e-10 and t>=deadline:del exits[s]
             p.reconcile(last)
             curve.append({"timestamp":t,"equity":p.equity(last)})
@@ -76,6 +86,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
             quantity=notional/(bars[s]["close"]*(1+conditions.fee+conditions.spread/2+conditions.slippage))
             oid=f"buy:{s}:{t}"
             p.place(oid,s,"buy",quantity)
+            strategy_for_asset[s]=choice["strategy"]
             daily_entries[day_key]=daily_entries.get(day_key,0)+1
             signals.append({"timestamp":t,**choice})
             # Exit after at least hold_bars global 5-minute steps.
@@ -86,6 +97,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
             "fees":p.fees_paid,"fills":len(p.fills),"signals":len(signals),
             "selection_reasons":rejections,"expectation_distribution":expectation_bins,
             "entry_threshold":entry_threshold,"max_entries_per_day":max_entries_per_day,
+            "specialist_performance":specialist_performance,
             "open_positions":{s:q for s,q in p.positions.items() if q>1e-10},
             "equity_curve":curve,"ledger":[vars(f) for f in p.fills],
             "model":"V5 offline execution with calibrated specialists" if models is not None else "V5 offline execution foundation, untrained specialists"}
