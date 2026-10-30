@@ -4,6 +4,8 @@ from pathlib import Path
 from backtest_v2 import load_data
 from labels_v5 import label_opportunities
 from meta_v5 import train
+from diagnostics_v5 import calibration_diagnostics
+from labels_v5 import purged_split
 from backtest_v5 import run
 
 def validate(data,train_days=45,cal_days=15,test_days=15):
@@ -18,9 +20,13 @@ def validate(data,train_days=45,cal_days=15,test_days=15):
         cal_end=times[i]
         test_end=times[i+day*test_days-1]
         models,counts=train(rows,train_end,cal_end,test_end)
+        _,calibration_rows,test_rows=purged_split(rows,train_end,cal_end,test_end)
         result=run(data,start=cal_end,end=test_end,models=models)
         results.append({"train_end":train_end,"cal_end":cal_end,"test_end":test_end,
                         "samples":counts,"specialists":list(models),
+                        "calibration_by_specialist":calibration_diagnostics(calibration_rows,models),
+                        "test_diagnostics_by_specialist":calibration_diagnostics(test_rows,models),
+                        "selection_reasons":result["selection_reasons"],
                         "final_equity":result["final_equity"],
                         "return_pct":100*(result["final_equity"]/result["initial"]-1),
                         "fees":result["fees"],"fills":result["fills"],
