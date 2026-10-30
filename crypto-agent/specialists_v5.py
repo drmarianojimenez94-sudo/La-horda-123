@@ -13,7 +13,7 @@ def specialists(bars):
     if quote<100000 or vol>.035:return []
     momentum_1h=price/close[-13]-1
     momentum_4h=price/close[-49]-1
-    volatility_ratio=vol/max(1e-9,pstdev([(close[i]/close[i-1]-1) for i in range(-96,-48)))
+    volatility_ratio=vol/max(1e-9,pstdev([(close[i]/close[i-1]-1) for i in range(-96,-48)]))
     taker=float(bars[-1].get("taker_buy_base",0))
     buy_imbalance=taker/max(1e-9,float(bars[-1]["volume"])) if taker else .5
     context={"momentum_1h":momentum_1h,"momentum_4h":momentum_4h,
