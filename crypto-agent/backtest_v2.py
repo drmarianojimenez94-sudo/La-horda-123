@@ -8,12 +8,13 @@ FEE=0.001
 HALF_SPREAD=0.0003
 SLIPPAGE=0.0005
 ROUND_TRIP=2*(FEE+HALF_SPREAD+SLIPPAGE)
+BARS_PER_HOUR=12
 PARAMETERS=[
- {"fast":12,"slow":72,"momentum":6,"threshold":0.002,"stop":2.0,"reward":2.0},
- {"fast":24,"slow":120,"momentum":12,"threshold":0.004,"stop":2.5,"reward":2.5},
- {"fast":36,"slow":168,"momentum":12,"threshold":0.006,"stop":3.0,"reward":2.0},
+ {"fast":144,"slow":864,"momentum":72,"threshold":0.002,"stop":2.0,"reward":2.0},
+ {"fast":288,"slow":1440,"momentum":144,"threshold":0.004,"stop":2.5,"reward":2.5},
+ {"fast":432,"slow":2016,"momentum":144,"threshold":0.006,"stop":3.0,"reward":2.0},
 ]
-def load_data(folder="crypto-agent/data"):
+def load_data(folder="crypto-agent/data_5m"):
  out={}
  for path in Path(folder).glob("*.csv"):
   with path.open() as f:
@@ -23,13 +24,13 @@ def load_data(folder="crypto-agent/data"):
  return out
 
 def signal(history,params):
- if len(history)<max(200,params["slow"]+2):return None
+ if len(history)<max(2200,params["slow"]+288):return None
  c=[r["close"] for r in history]
  fast=statistics.fmean(c[-params["fast"]:])
  slow=statistics.fmean(c[-params["slow"]:])
- prev=statistics.fmean(c[-params["slow"]-24:-24])
- returns=[math.log(c[i]/c[i-1]) for i in range(-48,0)]
- sigma=statistics.pstdev(returns)*math.sqrt(24)
+ prev=statistics.fmean(c[-params["slow"]-288:-288])
+ returns=[math.log(c[i]/c[i-1]) for i in range(-576,0)]
+ sigma=statistics.pstdev(returns)*math.sqrt(288)
  trend_strength=(slow/prev-1) if prev else 0
  momentum=c[-1]/c[-1-params["momentum"]]-1
  if sigma>0.12:regime="extreme"
@@ -37,7 +38,7 @@ def signal(history,params):
  elif fast<slow and trend_strength<0:regime="bear"
  else:regime="sideways"
  if regime!="bull" or momentum<params["threshold"]:return regime,None
- atr=statistics.fmean(max(r["high"]-r["low"],abs(r["high"]-p["close"]),abs(r["low"]-p["close"])) for p,r in zip(history[-25:-1],history[-24:]))
+ atr=statistics.fmean(max(r["high"]-r["low"],abs(r["high"]-p["close"]),abs(r["low"]-p["close"])) for p,r in zip(history[-289:-1],history[-288:]))
  return regime,{"distance":max(0.012,min(0.05,params["stop"]*atr/c[-1])),"score":momentum/max(sigma,0.001)}
 
 def simulate(data,params,start,end,initial=INITIAL):
@@ -68,7 +69,7 @@ def simulate(data,params,start,end,initial=INITIAL):
    elif b["open"]>=p["target"]:reason="gap_target";raw=b["open"]
    elif b["low"]<=p["stop"]:reason="stop";raw=p["stop"]
    elif b["high"]>=p["target"]:reason="target";raw=p["target"]
-   elif p["age"]>=72 or t==times[-1] or (active and t>=end):reason="timeout";raw=b["close"]
+   elif p["age"]>=864 or t==times[-1] or (active and t>=end):reason="timeout";raw=b["close"]
    if reason:
     exit_px=raw*(1-HALF_SPREAD-SLIPPAGE)
     proceeds=p["qty"]*exit_px*(1-FEE)
@@ -83,7 +84,7 @@ def simulate(data,params,start,end,initial=INITIAL):
   # The candle is added only after fills and risk checks.
   for s,b in bars.items():
    history[s].append(b)
-   if len(history[s])>250:history[s].pop(0)
+   if len(history[s])>2500:history[s].pop(0)
   if active and not halt and t<end:
    candidates=[]
    for s in bars:
@@ -109,9 +110,9 @@ def simulate(data,params,start,end,initial=INITIAL):
 
 def validate(data):
  times=sorted(set().union(*(set(p) for p in data.values())))
- if len(times)<24*75:raise ValueError("Need at least 75 days of hourly data")
+ if len(times)<288*75:raise ValueError("Need at least 75 days of hourly data")
  # Fixed expanding training and successive disjoint 15-day out-of-sample windows.
- windows=[];step=24*15;first=max(24*45,len(times)-3*step)
+ windows=[];step=288*15;first=max(288*45,len(times)-3*step)
  for idx in range(first,len(times)-1,step):
   if idx+step>len(times):break
   start,end=times[idx],times[idx+step]
