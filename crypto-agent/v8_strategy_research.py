@@ -7,6 +7,7 @@ import json,math
 from pathlib import Path
 from statistics import mean,pstdev
 from backtest_v2 import load_data
+from v8_leverage_policy import leverage_scenarios
 
 FAMILIES=("trend_pullback","channel_breakout","momentum","mean_reversion","volatility_expansion")
 COST_PER_SIDE=.0018  # 0.10% fee + 0.03% half-spread + 0.05% slippage
@@ -103,7 +104,10 @@ def evaluate(data):
     eligible=[r for r in ranked if r["validation_mean_pct"]>0 and
               r["validation_trades"]>=20 and r["validation_max_dd_pct"]<=12]
     chosen=eligible[0] if eligible else None
-    return {"data_type":"real_5m_OHLCV","candidates":len(strategies),
+    leverage={symbol:leverage_scenarios(chosen["per_asset"][symbol]["validation"])
+              for symbol in chosen["per_asset"]} if chosen else {}
+    return {"leverage_research":leverage,"leverage_live_enabled":False,
+            "data_type":"real_5m_OHLCV","candidates":len(strategies),
             "tested":len(rows),"selected":chosen["id"] if chosen else None,
             "selection_policy":"validation_only_positive_net_min20_trades_max12pct_dd",
             "selected_test_results":chosen["per_asset"] if chosen else None,
