@@ -65,7 +65,7 @@ def simulate(bars,c,start,end,initial=200.):
                 wins+=int(proceeds>entry_cost);trades+=1;position=None
         equity=cash+(position[0]*b["close"] if position else 0)
         peak=max(peak,equity);dd=max(dd,1-equity/peak)
-        if position is None and i>start and signal(bars,i-1,c):
+        if position is None and i>start and i<min(end,len(bars))-1 and signal(bars,i-1,c):
             allocation=min(20.,cash*.1)
             px=b["open"]*(1+COST_PER_SIDE-.001)
             if allocation>=5 and px>0:
