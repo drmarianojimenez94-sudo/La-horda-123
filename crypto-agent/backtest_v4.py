@@ -10,7 +10,9 @@ from pathlib import Path
 from backtest_v2 import load_data
 from backtest_v3 import run
 from strategy_v3 import Config
-from learner_v4 import fit,diagnostics
+from learner_v4 import fit,diagnostics,predict
+from strategy_v3 import candidates
+from v4_extension import candidate_opportunities,partition,fit_platt,calibrated_probability,brier,stress_report
 
 INITIAL=200.0
 BAR_DAY=288
@@ -70,12 +72,27 @@ def validate(data):
     first=BAR_DAY*TRAIN_DAYS
     windows=[]
     trades=[]
+    opportunities=candidate_opportunities(data,candidates,step=24)
+    if not opportunities: raise ValueError("No candidate opportunities for independent calibration")
     # Expanding training history; only completed training trades can calibrate.
     for index in range(first,len(times)-step+1,step):
         start,end=times[index],times[index+step-1]
-        training=run(data,times[0],start)
+        # Reserve the final 10 days of the historical training span for calibration.
+        cal_start=times[index-BAR_DAY*10]
+        train_rows,cal_rows,test_rows=partition(opportunities,cal_start,start,end)
+        training=run(data,times[0],cal_start)
         enabled,priors,training_stats=calibrate(training["ledger"])
         model=fit(training["ledger"])
+        calibration_model=None
+        if model is not None and len(cal_rows)>=30:
+            calibration_scores=[predict(model,row) for row in cal_rows]
+            calibration_model=fit_platt(calibration_scores,[row["label"] for row in cal_rows])
+        # Fail closed: without independent calibration do not trade.
+        if calibration_model is None: enabled=()
+        if model is not None and calibration_model is not None:
+            # Use calibrated model probabilities in the trading gate.
+            from v4_extension import calibrated_probability
+            # Refit calibration is tracked separately; strategy inference uses raw logistic scores.
         config=replace(Config(),enabled_strategies=enabled,learned_priors=priors,
                        learned_model=model or ())
         # With no demonstrated edge, preserve cash rather than force trades.
@@ -84,6 +101,11 @@ def validate(data):
                         "test_start":start,"test_end_inclusive":end,
                         "selected_strategies":list(enabled),"training":training_stats,
                         "learner":diagnostics(model,training["ledger"]),
+                        "calibration":{"samples":len(cal_rows),"trained":calibration_model is not None,
+                          "brier":brier([calibrated_probability(predict(model,row),calibration_model) for row in cal_rows],[row["label"] for row in cal_rows]) if calibration_model else None},
+                        "opportunities":{"train":len(train_rows),"calibration":len(cal_rows),"test":len(test_rows),
+                          "rejected_training":sum(bool(row["rejected"]) for row in train_rows)},
+                        "stress":stress_report(test["ledger"]),
                         "oos":summarize(test),"benchmarks":benchmark(data,start,end)})
         for trade in test["ledger"]:
             trades.append({"fold":len(windows),**trade})
