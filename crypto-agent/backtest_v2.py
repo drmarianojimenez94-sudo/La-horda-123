@@ -18,7 +18,7 @@ def load_data(folder="crypto-agent/data_5m"):
  out={}
  for path in Path(folder).glob("*.csv"):
   with path.open() as f:
-   rows=[dict(timestamp=r["timestamp"],open=float(r["open"]),high=float(r["high"]),low=float(r["low"]),close=float(r["close"]),volume=float(r["volume"])) for r in csv.DictReader(f)]
+   rows=[dict(timestamp=r["timestamp"],open=float(r["open"]),high=float(r["high"]),low=float(r["low"]),close=float(r["close"]),volume=float(r["volume"]),quote_volume=float(r.get("quote_volume") or float(r["close"])*float(r["volume"])),trade_count=int(r.get("trade_count") or 0),taker_buy_base=float(r.get("taker_buy_base") or 0),taker_buy_quote=float(r.get("taker_buy_quote") or 0)) for r in csv.DictReader(f)]
   if len(rows)>=200:out[path.stem]={r["timestamp"]:r for r in rows}
  if not out:raise ValueError("No historical candle CSV files found")
  return out
