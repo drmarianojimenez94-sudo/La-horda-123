@@ -5,24 +5,38 @@ FEE=.001; SPREAD=.0006; SLIP=.0005
 def get(url):
  with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'CryptoAgentPaper/1.0'}),timeout=20) as r:return json.load(r)
 def download(days=90,top=20):
+ import io, zipfile, urllib.error
  root=Path('crypto-agent/data');root.mkdir(parents=True,exist_ok=True)
- info=get('https://api.binance.com/api/v3/exchangeInfo')
- allowed={s['symbol'] for s in info['symbols'] if s['status']=='TRADING' and s['quoteAsset']=='USDT' and s.get('isSpotTradingAllowed',True) and s['baseAsset'] not in {'USDC','FDUSD','TUSD','DAI','USDE','USD1'} and not s['baseAsset'].endswith(('UP','DOWN','BULL','BEAR'))}
- ticks=get('https://api.binance.com/api/v3/ticker/24hr')
- names=[x['symbol'] for x in sorted((x for x in ticks if x['symbol'] in allowed),key=lambda x:float(x['quoteVolume']),reverse=True)[:top]]
- end=int(time.time()*1000);start=end-days*86400000
+ # Fixed, liquid spot pairs; avoids selecting today's winners using future information.
+ names=['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','ADAUSDT','DOGEUSDT','TRXUSDT','LINKUSDT','AVAXUSDT']
+ today=datetime.datetime.now(datetime.timezone.utc).date()
+ finish=today-datetime.timedelta(days=1)
+ begin=finish-datetime.timedelta(days=days-1)
  for symbol in names:
-  cursor=start;rows=[]
-  while cursor<end:
-   batch=get(f'https://api.binance.com/api/v3/klines?symbol={symbol}&interval=1h&startTime={cursor}&endTime={end}&limit=1000')
-   if not batch:break
-   for b in batch:
-    if b[6]<end-3600000:rows.append([datetime.datetime.fromtimestamp(b[0]/1000,datetime.timezone.utc).isoformat(),*b[1:6]])
-   cursor=int(batch[-1][0])+3600000
-   time.sleep(.12)
-  with (root/(symbol+'.csv')).open('w',newline='') as f:
-   w=csv.writer(f);w.writerow(['timestamp','open','high','low','close','volume']);w.writerows(rows)
+  rows=[]
+  day=begin
+  while day<=finish:
+   d=day.isoformat()
+   url=f'https://data.binance.vision/data/spot/daily/klines/{symbol}/1h/{symbol}-1h-{d}.zip'
+   try:
+    with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0'}),timeout=30) as response:
+     payload=response.read()
+    with zipfile.ZipFile(io.BytesIO(payload)) as z:
+     with z.open(z.namelist()[0]) as source:
+      reader=csv.reader(io.TextIOWrapper(source,encoding='utf-8-sig'))
+      for b in reader:
+       if not b or not b[0].isdigit():continue
+       ts=int(b[0])
+       if ts>10**14:ts//=1000 # Binance public files may use microseconds.
+       rows.append([datetime.datetime.fromtimestamp(ts/1000,datetime.timezone.utc).isoformat(),*b[1:6]])
+   except (urllib.error.HTTPError,urllib.error.URLError,zipfile.BadZipFile) as exc:
+    raise RuntimeError(f'Failed historical Binance archive {url}: {exc}') from exc
+   day+=datetime.timedelta(days=1)
+  target=root/(symbol+'.csv')
+  with target.open('w',newline='') as file:
+   writer=csv.writer(file);writer.writerow(['timestamp','open','high','low','close','volume']);writer.writerows(rows)
   print(symbol,len(rows),flush=True)
+  if len(rows)<days*20:raise RuntimeError(f'Insufficient bars for {symbol}: {len(rows)}')
 def load():
  pairs={}
  for f in Path('crypto-agent/data').glob('*.csv'):
