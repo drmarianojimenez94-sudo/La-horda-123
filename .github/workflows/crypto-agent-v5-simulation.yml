@@ -22,6 +22,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Compile all CryptoAgent Python files before testing
+        run: python -m compileall -q crypto-agent
       - name: Run V5 unit and integration tests
         run: |
           python -m unittest discover -s crypto-agent -p 'test_engine_v5.py' -v
