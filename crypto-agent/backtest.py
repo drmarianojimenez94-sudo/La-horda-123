@@ -52,12 +52,22 @@ def load():
 def run(pairs,name,start,end):
  cash=200.;positions={};trades=[];history={s:[] for s in pairs};last={}
  day='';day_base=200.;halt=False;halts=0;peak=200.;drawdown=0.
+ weekly_closed=[];weekly_scale=1.;week_key=None;weekly_reviews=[]
  cost=FEE+SPREAD/2+SLIP
  limits={'conservadora':(2,.20),'adaptativa':(3,.30),'agresiva':(4,.40)}
  max_open,max_exposure=limits[name]
  times=sorted({t for p in pairs.values() for t in p if start<=t<end})
  for t in times:
   bars={s:p[t] for s,p in pairs.items() if t in p}
+  # Weekly walk-forward adjustment: use only trades closed before this bar.
+  week=datetime.date.fromisoformat(t[:10]).isocalendar()[:2]
+  if week!=week_key:
+   if week_key is not None:
+    recent=[pnl for closed_at,pnl in weekly_closed if closed_at<t and (datetime.date.fromisoformat(t[:10])-datetime.date.fromisoformat(closed_at[:10])).days<=28]
+    # Reduce size after a negative rolling 28-day outcome; never increase beyond baseline.
+    weekly_scale=.5 if len(recent)>=5 and sum(recent)<0 else 1.
+    weekly_reviews.append({'week':str(week),'closed_trades':len(recent),'risk_scale':weekly_scale})
+   week_key=week
   # Only past completed candles are in history when decisions are made.
   mark=lambda: cash+sum(p['qty']*(bars[s]['open'] if s in bars else last.get(s,p['entry'])) for s,p in positions.items())
   equity=mark()
@@ -75,7 +85,7 @@ def run(pairs,name,start,end):
    elif p['age']>=72:px=bar['close']
    if px is not None:
     received=p['qty']*px*(1-cost)
-    cash+=received;trades.append(received-p['cost']);del positions[s]
+    cash+=received;trades.append(received-p['cost']);weekly_closed.append((t,received-p['cost']));del positions[s]
    else:
     # Trailing stop updated after this bar, effective next bar.
     if bar['high']>=p['entry']*(1+p['trail_trigger']):
@@ -89,7 +99,7 @@ def run(pairs,name,start,end):
    for s,p in list(positions.items()):
     if s in bars:
      received=p['qty']*bars[s]['open']*(1-cost)
-     cash+=received;trades.append(received-p['cost']);del positions[s]
+     cash+=received;trades.append(received-p['cost']);weekly_closed.append((t,received-p['cost']));del positions[s]
   candidates=[]
   for s,b in bars.items():
    h=history[s]
@@ -113,7 +123,7 @@ def run(pairs,name,start,end):
     target=max(MIN_NET_TARGET+2*cost,MIN_REWARD_RISK*distance+2*cost)
     equity=mark()
     used=sum(p['cost'] for p in positions.values())
-    allocation=min(cash,max(0,200*max_exposure-used),max(0,equity)*MAX_RISK_PER_TRADE/(distance+2*cost))
+    allocation=min(cash,max(0,200*max_exposure-used),max(0,equity)*MAX_RISK_PER_TRADE*weekly_scale/(distance+2*cost))
     if allocation<5:continue
     px=bars[s]['open'];qty=allocation/(px*(1+cost))
     positions[s]={'qty':qty,'cost':allocation,'entry':px,'stop':px*(1-distance),'target':px*(1+target),'distance':distance,'trail_trigger':target*.5,'age':0}
@@ -124,7 +134,7 @@ def run(pairs,name,start,end):
   equity=cash+sum(p['qty']*last.get(s,p['entry']) for s,p in positions.items())
   peak=max(peak,equity);drawdown=max(drawdown,1-equity/peak)
  equity=cash+sum(p['qty']*last.get(s,p['entry']) for s,p in positions.items())
- return {'strategy':name,'initial_usdt':200,'final_usdt':round(equity,3),'return_pct':round(100*(equity/200-1),3),'trades':len(trades),'max_drawdown_pct':round(drawdown*100,3),'halts':halts}
+ return {'strategy':name,'initial_usdt':200,'final_usdt':round(equity,3),'return_pct':round(100*(equity/200-1),3),'trades':len(trades),'max_drawdown_pct':round(drawdown*100,3),'halts':halts,'weekly_reviews':weekly_reviews,'realized_pnl':round(sum(trades),3)}
 if __name__=='__main__':
  download()
  pairs=load()
