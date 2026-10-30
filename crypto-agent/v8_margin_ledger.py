@@ -42,8 +42,9 @@ class MarginLedger:
         funding=p.quantity*close*self.funding_per_8h*hours/8
         self.funding+=funding
         # Adverse first: stop/liquidation before favorable targets.
-        if low<=p.liquidation_price:
-            self.close(p.liquidation_price,liquidated=True)
+        funding_adjusted_liq=(p.borrowed+self.funding)/(p.quantity*(1-self.fee-self.maintenance))
+        if low<=funding_adjusted_liq:
+            self.close(min(low,funding_adjusted_liq),liquidated=True)
             return "liquidation"
         return "open"
     def close(self,price,liquidated=False):
