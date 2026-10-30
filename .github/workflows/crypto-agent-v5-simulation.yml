@@ -3,16 +3,16 @@ on:
   workflow_dispatch:
     inputs:
       days:
-        description: 'Historical 5-minute candles (365 days; 4x the original 90-day baseline)'
+        description: 'Historical 5-minute candles (90 days; fast research run)'
         required: true
         type: choice
-        default: '365'
+        default: '90'
         options:
-          - '365'
+          - '90'
 jobs:
   simulation:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 45
     permissions:
       contents: write
     steps:
