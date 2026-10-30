@@ -61,8 +61,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
             if s in exits or p.positions.get(s,0)>1e-10 or any(o.symbol==s and o.status=="open" for o in p.orders.values()):continue
             choices=specialists(history[s])
             if not choices:continue
-            choice=max(choices,key=lambda x:x["score"])
-            proposals.append({"symbol":s,**choice})
+            proposals.extend({"symbol":s,**choice} for choice in choices)
         if models is not None:
             current_equity=p.equity(last)
             exposure={s:q*last[s]/current_equity for s,q in p.positions.items() if q>0 and current_equity>0}
