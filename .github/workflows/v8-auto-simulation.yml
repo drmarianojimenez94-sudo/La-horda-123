@@ -32,12 +32,28 @@ jobs:
           python -m unittest discover -s crypto-agent -p 'test_v8_margin_ledger.py' -v
           python -m unittest discover -s crypto-agent -p 'test_v8_margin_comparison.py' -v
           python -m unittest discover -s crypto-agent -p 'test_v8_channel*.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_v8_unified.py' -v
+      - name: Restore prior research memory
+        uses: actions/cache/restore@v4
+        with:
+          path: crypto-agent/state/v8-research.sqlite3
+          key: v8-research-${{ github.run_id }}
+          restore-keys: |
+            v8-research-
       - name: Download 90 days real BTC and ETH
         run: python crypto-agent/download_5m.py --days 90 --symbols BTCUSDT,ETHUSDT
       - name: Simulate all 50 hypotheses
         run: python crypto-agent/v8_strategy_research.py
       - name: Test shared-capital channel breakouts
         run: python crypto-agent/v8_channel_portfolio.py
+      - name: Audit and archive V8 model selection
+        run: python crypto-agent/v8_economic_audit.py
+      - name: Save immutable research memory snapshot
+        uses: actions/cache/save@v4
+        if: success()
+        with:
+          path: crypto-agent/state/v8-research.sqlite3
+          key: v8-research-${{ github.run_id }}
       - name: Analyze historical price behaviour
         run: python crypto-agent/v8_price_behaviour.py
       - name: Upload V8 results
@@ -49,5 +65,7 @@ jobs:
             crypto-agent/v8-strategy-research.json
             crypto-agent/v8-price-behaviour.json
             crypto-agent/v8-channel-portfolio.json
+            crypto-agent/v8-economic-audit.json
+            crypto-agent/state/v8-research.sqlite3
           if-no-files-found: warn
           retention-days: 90
