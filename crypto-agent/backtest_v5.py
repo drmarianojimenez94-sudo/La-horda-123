@@ -11,13 +11,13 @@ from diagnostics_v5 import diagnose
 def s_not_ready(order,exits,t):
     return order.symbol not in exits or t>=exits[order.symbol]
 
-def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold_bars=36,models=None):
+def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold_bars=36,models=None,entry_threshold=.0018,max_entries_per_day=3):
     times=sorted(set().union(*(set(series) for series in data.values())))
     if not times:raise ValueError("No bars")
     start=start or times[0];end=end or times[-1]
     p=Portfolio(initial);history={s:[] for s in data}
     time_index={t:i for i,t in enumerate(times)}
-    exits={};curve=[];signals=[];last={};rejections={};expectation_bins={"negative":0,"0_to_0.1pct":0,"0.1_to_0.18pct":0,"above_threshold":0}
+    exits={};curve=[];signals=[];last={};rejections={};daily_entries={};expectation_bins={"negative":0,"0_to_0.1pct":0,"0.1_to_0.18pct":0,"above_threshold":0}
     for t in times:
         if t>=end:break
         bars={s:series[t] for s,series in data.items() if t in series}
@@ -56,7 +56,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
         if models is not None:
             current_equity=p.equity(last)
             exposure={s:q*last[s]/current_equity for s,q in p.positions.items() if q>0 and current_equity>0}
-            for item in diagnose(proposals,models,exposure):
+            for item in diagnose(proposals,models,exposure,threshold=entry_threshold):
                 reason=item["reason"]
                 rejections[reason]=rejections.get(reason,0)+1
                 value=item.get("expected_net")
@@ -64,9 +64,11 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
                     bucket=("negative" if value<0 else "0_to_0.1pct" if value<.001 else
                             "0.1_to_0.18pct" if value<.0018 else "above_threshold")
                     expectation_bins[bucket]+=1
-            proposals=select(proposals,models,exposure)
+            proposals=select(proposals,models,exposure,threshold=entry_threshold)
         for choice in proposals:
             s=choice["symbol"]
+            day_key=str(t)[:10]
+            if daily_entries.get(day_key,0)>=max_entries_per_day:continue
             if s in exits or p.positions.get(s,0)>1e-10 or any(o.symbol==s and o.status=="open" for o in p.orders.values()):continue
             # Risk-limited allocation, no leverage or shorting.
             notional=min(p.cash*(choice.get("allocation_fraction",.1)),20.)
@@ -74,6 +76,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
             quantity=notional/(bars[s]["close"]*(1+conditions.fee+conditions.spread/2+conditions.slippage))
             oid=f"buy:{s}:{t}"
             p.place(oid,s,"buy",quantity)
+            daily_entries[day_key]=daily_entries.get(day_key,0)+1
             signals.append({"timestamp":t,**choice})
             # Exit after at least hold_bars global 5-minute steps.
             idx=time_index[t]
@@ -82,6 +85,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
     return {"initial":initial,"final_equity":p.equity(last),"realized_pnl":p.realized_pnl,
             "fees":p.fees_paid,"fills":len(p.fills),"signals":len(signals),
             "selection_reasons":rejections,"expectation_distribution":expectation_bins,
+            "entry_threshold":entry_threshold,"max_entries_per_day":max_entries_per_day,
             "open_positions":{s:q for s,q in p.positions.items() if q>1e-10},
             "equity_curve":curve,"ledger":[vars(f) for f in p.fills],
             "model":"V5 offline execution with calibrated specialists" if models is not None else "V5 offline execution foundation, untrained specialists"}
