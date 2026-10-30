@@ -1,0 +1,27 @@
+name: CryptoAgent V7 Event Engine Tests
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'crypto-agent/event_*v7.py'
+      - 'crypto-agent/collector_v7.py'
+      - 'crypto-agent/test_event_v7.py'
+      - 'crypto-agent/event_learning_v7.py'
+      - 'crypto-agent/test_event_learning_v7.py'
+      - '.github/workflows/crypto-agent-v7.yml'
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax
+        run: python -m compileall -q crypto-agent
+      - name: Event and memory regression
+        run: |
+          python -m unittest discover -s crypto-agent -p 'test_event_v7.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_event_learning_v7.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_brain_v7.py' -v
