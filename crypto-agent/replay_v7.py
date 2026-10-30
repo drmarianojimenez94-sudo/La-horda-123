@@ -9,8 +9,9 @@ from event_engine_v7 import EventPaperAgent,BookEvent
 from event_learning_v7 import build_shadow_labels,purged_time_split
 from calibration_v7 import recalibrate_candidate,score
 from benchmarks_v7 import compare
+from event_memory_v7 import EventMemory
 
-def replay(quotes,fee=.001,horizon_ms=60000):
+def replay(quotes,fee=.001,horizon_ms=60000,memory_path=None):
     quotes=sorted(quotes,key=lambda q:(q["timestamp_ms"],q["symbol"]))
     if len(quotes)<120:raise ValueError("Need at least 120 quote events")
     # Strict chronological partitions, with labels purged across boundaries.
@@ -54,6 +55,17 @@ def replay(quotes,fee=.001,horizon_ms=60000):
         if q["symbol"] in open_since:continue
         fill=agent.on_book(event,expected+sample["spread"]+2*fee,now_ms=t)
         if fill is not None:open_since[q["symbol"]]=t
+    if memory_path is not None:
+        memory=EventMemory(memory_path)
+        try:
+            for q in quotes:
+                memory.record("book_ticker",q["symbol"],{k:q[k] for k in ("bid","ask","bid_qty","ask_qty")},q["timestamp_ms"])
+            for outcome in outcomes:
+                memory.record("paper_exit",outcome["symbol"],outcome,outcome["exit_ms"])
+            if model is not None:
+                memory.save_model("replay-"+str(b),a,model,candidate["validation"])
+        finally:
+            memory.close()
     last_prices={q["symbol"]:q["bid"] for q in quotes}
     equity=agent.portfolio.equity(last_prices)
     return {"status":"evaluated","source":"event_quote_replay","model_enabled":model is not None,
@@ -70,9 +82,10 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--quotes",required=True)
     parser.add_argument("--output",default="crypto-agent/v7-replay-results.json")
+    parser.add_argument("--memory",default=None)
     args=parser.parse_args()
     with open(args.quotes) as f:quotes=[json.loads(line) for line in f if line.strip()]
-    result=replay(quotes)
+    result=replay(quotes,memory_path=args.memory)
     Path(args.output).parent.mkdir(parents=True,exist_ok=True)
     Path(args.output).write_text(json.dumps(result,indent=2))
     print(json.dumps(result,indent=2))
