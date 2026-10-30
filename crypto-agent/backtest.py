@@ -102,9 +102,17 @@ def run(pairs,name,start,end,warmup_start=None):
     received=p['qty']*px*(1-cost)
     cash+=received;trades.append(received-p['cost']);weekly_closed.append((t,received-p['cost']));del positions[s]
    else:
+    # Partial take-profit only after the minimum gross objective is reached.
+    if not p.get('partial') and bar['high']>=p['entry']*(1+MIN_NET_TARGET+2*cost):
+     sale_qty=p['qty']*.5
+     proceeds=sale_qty*p['entry']*(1+MIN_NET_TARGET+2*cost)*(1-cost)
+     sold_cost=p['cost']*.5
+     cash+=proceeds;trades.append(proceeds-sold_cost);weekly_closed.append((t,proceeds-sold_cost))
+     p['qty']-=sale_qty;p['cost']-=sold_cost;p['partial']=True
+     p['next_stop']=max(p['stop'],p['entry']*(1+2*cost))
     # Trailing stop updated after this bar, effective next bar.
     if bar['high']>=p['entry']*(1+p['trail_trigger']):
-     p['next_stop']=max(p['stop'],bar['close']*(1-p['distance']))
+     p['next_stop']=max(p.get('next_stop',p['stop']),bar['close']*(1-p['distance']))
   for p in positions.values():
    if 'next_stop' in p:p['stop']=p.pop('next_stop')
   equity=mark()
@@ -130,10 +138,10 @@ def run(pairs,name,start,end,warmup_start=None):
    else:
     signal=trend and h[-1]>=max(h[-24:]) and momentum>.003
    if signal and vol>.002:
-    liquidity=statistics.fmean([p['volume']*p['close'] for p in list(pairs[s].values())[-1:]]) if False else statistics.fmean([b['volume']*b['close']])
+    liquidity=statistics.fmean([hpx['volume']*hpx['close'] for hpx in [pairs[s][k] for k in sorted(pairs[s]) if k<t][-24:]])
     candidates.append((momentum,s,vol,liquidity))
   if not halt and active:
-   for _,s,vol,liquidity in sorted(candidates,reverse=True):
+   for _,s,vol,liquidity in sorted(candidates,key=lambda x:(x[0]*min(1.,x[3]/1e7),x[3]),reverse=True):
     if len(positions)>=max_open:break
     distance=max(.012,min(.04,vol*1.5))
     # Gross target includes both execution costs and >=1% net target.
