@@ -1,0 +1,26 @@
+name: Crypto Backtest V2 Audit
+on:
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download historical candles
+        run: python -c "import sys; sys.path.insert(0, 'crypto-agent'); import backtest; backtest.download()"
+      - name: Run walk-forward audit
+        run: python crypto-agent/backtest_v2.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: crypto-v2-audit
+          path: |
+            crypto-agent/audit_v2.json
+            crypto-agent/trades_v2.csv
+          if-no-files-found: warn
