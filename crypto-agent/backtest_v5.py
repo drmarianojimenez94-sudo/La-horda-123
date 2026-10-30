@@ -16,6 +16,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
     if not times:raise ValueError("No bars")
     start=start or times[0];end=end or times[-1]
     p=Portfolio(initial);history={s:[] for s in data}
+    time_index={t:i for i,t in enumerate(times)}
     exits={};curve=[];signals=[];last={};rejections={};expectation_bins={"negative":0,"0_to_0.1pct":0,"0.1_to_0.18pct":0,"above_threshold":0}
     for t in times:
         if t>=end:break
@@ -43,7 +44,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
             curve.append({"timestamp":t,"equity":p.equity(last)})
         for s,b in bars.items():
             history[s].append(b)
-            if len(history[s])>2500:history[s].pop(0)
+            if len(history[s])>121:history[s].pop(0)
         if t<start:continue
         proposals=[]
         for s in bars:
@@ -75,7 +76,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
             p.place(oid,s,"buy",quantity)
             signals.append({"timestamp":t,**choice})
             # Exit after at least hold_bars global 5-minute steps.
-            idx=times.index(t)
+            idx=time_index[t]
             exits[s]=times[min(idx+hold_bars,len(times)-1)]
     # Mark-to-market at end; do not invent final liquidation.
     return {"initial":initial,"final_equity":p.equity(last),"realized_pnl":p.realized_pnl,
