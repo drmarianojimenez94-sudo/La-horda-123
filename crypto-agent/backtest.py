@@ -96,7 +96,7 @@ def run(pairs,name,start,end,warmup_start=None):
   equity=mark()
   if not halt and equity<=day_base*(1-MAX_DAILY_LOSS):halt=True;halts+=1
   if halt:
-   # Liquidation is scheduled for the NEXT bar open, never a past open.
+   # Circuit breaker closes at current bar close; no retrospective open fill.
    for s,p in list(positions.items()):
     if s in bars:
      received=p['qty']*bars[s]['close']*(1-cost)
