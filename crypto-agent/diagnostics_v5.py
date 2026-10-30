@@ -3,13 +3,13 @@ from statistics import mean
 from learner_v4 import predict
 from v4_extension import calibrated_probability
 
-def diagnose(signals,models,exposure=None,limit=.4,per_asset=.15,threshold=.002):
+def diagnose(signals,models,exposure=None,limit=.4,per_asset=.15,threshold=.0018):
     exposure=dict(exposure or {})
     decisions=[]
     for row in signals:
         name=row["strategy"];symbol=row["symbol"]
         m=models.get(name)
-        result={"symbol":symbol,"strategy":name,"reason":None,
+        result={"symbol":symbol,"strategy":name,"reason":None,"threshold":threshold,
                 "probability":None,"expected_net":None}
         if m is None:
             result["reason"]="specialist_unavailable"
