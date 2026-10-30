@@ -13,6 +13,7 @@ from strategy_v3 import Config
 from learner_v4 import fit,diagnostics,predict
 from strategy_v3 import candidates
 from v4_extension import candidate_opportunities,partition,fit_platt,calibrated_probability,brier,stress_report
+from validation_v4 import check_fold_separation,sensitivity,gate
 
 INITIAL=200.0
 BAR_DAY=288
@@ -80,6 +81,8 @@ def validate(data):
         # Reserve the final 10 days of the historical training span for calibration.
         cal_start=times[index-BAR_DAY*10]
         train_rows,cal_rows,test_rows=partition(opportunities,cal_start,start,end)
+        if not check_fold_separation(train_rows,cal_rows,test_rows):
+            raise ValueError("Temporal leakage between folds")
         training=run(data,times[0],cal_start)
         enabled,priors,training_stats=calibrate(training["ledger"])
         model=fit(training["ledger"])
@@ -102,13 +105,14 @@ def validate(data):
                         "opportunities":{"train":len(train_rows),"calibration":len(cal_rows),"test":len(test_rows),
                           "rejected_training":sum(bool(row["rejected"]) for row in train_rows)},
                         "stress":stress_report(test["ledger"]),
+                        "sensitivity":sensitivity(data,start,end,config),
                         "oos":summarize(test),"benchmarks":benchmark(data,start,end)})
         for trade in test["ledger"]:
             trades.append({"fold":len(windows),**trade})
     if not windows:
         raise ValueError("No complete out-of-sample windows")
     compounded=100*(math.prod(1+w["oos"]["return_pct"]/100 for w in windows)-1)
-    return {"version":"V4 research, training-only regularized logistic learner and empirical calibration",
+    report={"version":"V4 research, training-only regularized logistic learner and empirical calibration",
             "training":"expanding 45+ days, 15-day disjoint test windows",
             "execution":"next 5m open, fees, fixed spread and slippage, conservative OHLC stop priority",
             "aggregate_oos_return_pct":round(compounded,6),
@@ -117,6 +121,8 @@ def validate(data):
                            "No real historical spread, market impact or funding",
                            "No short selling or leverage","Small training sample may prevent trading"],
             "trades":trades}
+    report["robustness_gate"]=gate(report)
+    return report
 
 def main():
     report=validate(load_data())
