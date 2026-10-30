@@ -50,39 +50,77 @@ def load():
   pairs[f.stem]={r['timestamp']:{k:float(r[k]) for k in ('open','high','low','close','volume')} for r in rows}
  return pairs
 def run(pairs,name,start,end):
- size,max_open,loss,zlim,tp,stop=PROFILES[name];loss=MAX_DAILY_LOSS;tp=max(tp,MIN_NET_TARGET+2*(FEE+SPREAD/2+SLIP),MIN_REWARD_RISK*stop+2*(FEE+SPREAD/2+SLIP));cash=200.;positions={};trades=[];history={s:[] for s in pairs};last={};day='';base=200.;halt=False;halts=0;peak=200.;drawdown=0
+ cash=200.;positions={};trades=[];history={s:[] for s in pairs};last={}
+ day='';day_base=200.;halt=False;halts=0;peak=200.;drawdown=0.
+ cost=FEE+SPREAD/2+SLIP
+ limits={'conservadora':(2,.20),'adaptativa':(3,.30),'agresiva':(4,.40)}
+ max_open,max_exposure=limits[name]
  times=sorted({t for p in pairs.values() for t in p if start<=t<end})
  for t in times:
   bars={s:p[t] for s,p in pairs.items() if t in p}
-  for s,b in bars.items():last[s]=b['close']
-  equity=cash+sum(p['qty']*last.get(s,p['entry']) for s,p in positions.items())
-  if t[:10]!=day:day=t[:10];base=equity;halt=False
-  if not halt and equity<=base*(1-loss):halt=True;halts+=1
+  # Only past completed candles are in history when decisions are made.
+  mark=lambda: cash+sum(p['qty']*(bars[s]['open'] if s in bars else last.get(s,p['entry'])) for s,p in positions.items())
+  equity=mark()
+  if t[:10]!=day:day=t[:10];day_base=equity;halt=False
+  if not halt and equity<=day_base*(1-MAX_DAILY_LOSS):halt=True;halts+=1
   for s,p in list(positions.items()):
    if s not in bars:continue
-   px=bars[s]['open'];p['age']+=1
-   if px>=p['entry']*(1+tp) or px<=p['entry']*(1-stop) or p['age']>=72:
-    received=p['qty']*px*(1-SPREAD/2-SLIP)*(1-FEE)
+   bar=bars[s];p['age']+=1
+   # Gap at open; otherwise pessimistic stop-first ordering for ambiguous bars.
+   px=None
+   if bar['open']<=p['stop']:px=bar['open']
+   elif bar['open']>=p['target']:px=bar['open']
+   elif bar['low']<=p['stop']:px=p['stop']
+   elif bar['high']>=p['target']:px=p['target']
+   elif p['age']>=72:px=bar['close']
+   if px is not None:
+    received=p['qty']*px*(1-cost)
     cash+=received;trades.append(received-p['cost']);del positions[s]
+   else:
+    # Trailing stop updated after this bar, effective next bar.
+    if bar['high']>=p['entry']*(1+p['trail_trigger']):
+     p['next_stop']=max(p['stop'],bar['close']*(1-p['distance']))
+  for p in positions.values():
+   if 'next_stop' in p:p['stop']=p.pop('next_stop')
+  equity=mark()
+  if not halt and equity<=day_base*(1-MAX_DAILY_LOSS):halt=True;halts+=1
+  if halt:
+   # Circuit breaker liquidates at available open, not an imaginary stop price.
+   for s,p in list(positions.items()):
+    if s in bars:
+     received=p['qty']*bars[s]['open']*(1-cost)
+     cash+=received;trades.append(received-p['cost']);del positions[s]
   candidates=[]
   for s,b in bars.items():
    h=history[s]
-   if len(h)==48 and s not in positions and b['volume']>0:
-    mean=statistics.fmean(h);sd=statistics.pstdev(h)
-    if sd>0 and sd/mean>.002:
-     z=(h[-1]-mean)/sd
-     if z<zlim:candidates.append((z,s,sd/mean))
+   if len(h)<168 or s in positions or b['volume']<=0:continue
+   fast=statistics.fmean(h[-24:]);slow=statistics.fmean(h[-168:])
+   vol=statistics.pstdev(h[-48:])/max(statistics.fmean(h[-48:]),1e-9)
+   momentum=h[-1]/h[-7]-1
+   trend=fast>slow and h[-1]>fast
+   if name=='conservadora':
+    signal=trend and momentum>.002 and h[-1]>h[-2]
+   elif name=='adaptativa':
+    signal=(trend and momentum>0) or (abs(fast/slow-1)<.008 and h[-2]<fast<h[-1])
+   else:
+    signal=trend and h[-1]>=max(h[-24:]) and momentum>.003
+   if signal and vol>.002:candidates.append((momentum,s,vol))
   if not halt:
-   for _,s,vol in sorted(candidates):
+   for _,s,vol in sorted(candidates,reverse=True):
     if len(positions)>=max_open:break
-    allocation=min(size*(.5 if name=='adaptativa' and vol>.025 else 1),equity*MAX_RISK_PER_TRADE/(stop+2*(FEE+SPREAD/2+SLIP)))
-    if cash<allocation:continue
-    px=bars[s]['open']*(1+SPREAD/2+SLIP)
-    qty=allocation/(px*(1+FEE))
-    positions[s]={'qty':qty,'cost':allocation,'entry':bars[s]['open'],'age':0};cash-=allocation
+    distance=max(.012,min(.04,vol*1.5))
+    # Gross target includes both execution costs and >=1% net target.
+    target=max(MIN_NET_TARGET+2*cost,MIN_REWARD_RISK*distance+2*cost)
+    equity=mark()
+    used=sum(p['cost'] for p in positions.values())
+    allocation=min(cash,max(0,200*max_exposure-used),max(0,equity)*MAX_RISK_PER_TRADE/(distance+2*cost))
+    if allocation<5:continue
+    px=bars[s]['open'];qty=allocation/(px*(1+cost))
+    positions[s]={'qty':qty,'cost':allocation,'entry':px,'stop':px*(1-distance),'target':px*(1+target),'distance':distance,'trail_trigger':target*.5,'age':0}
+    cash-=allocation
   for s,b in bars.items():
-   h=history[s];h.append(b['close'])
-   if len(h)>48:h.pop(0)
+   last[s]=b['close'];h=history[s];h.append(b['close'])
+   if len(h)>168:h.pop(0)
   equity=cash+sum(p['qty']*last.get(s,p['entry']) for s,p in positions.items())
   peak=max(peak,equity);drawdown=max(drawdown,1-equity/peak)
  equity=cash+sum(p['qty']*last.get(s,p['entry']) for s,p in positions.items())
