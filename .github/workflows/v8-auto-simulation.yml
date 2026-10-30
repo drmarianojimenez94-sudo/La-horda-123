@@ -6,6 +6,9 @@ on:
       - 'crypto-agent/test_v8_strategy_research.py'
       - '.github/workflows/v8-auto-simulation.yml'
   workflow_dispatch:
+concurrency:
+  group: v8-simulation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   simulate:
     runs-on: ubuntu-latest
