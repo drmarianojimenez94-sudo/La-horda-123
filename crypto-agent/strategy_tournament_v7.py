@@ -124,6 +124,7 @@ def tournament(data,train_fraction=.6,validation_fraction=.2):
 if __name__=="__main__":
     result=tournament(load_data())
     result["validation_risk_selection"]=choose_with_validation(result)
+    result["selected_candidate"]=result["validation_risk_selection"]["candidate"]
     path=Path("crypto-agent/strategy_tournament_v7.json")
     path.write_text(json.dumps(result,indent=2))
     print(json.dumps({"selected_candidate":result["selected_candidate"],"ranking":result["ranking"]},indent=2))
