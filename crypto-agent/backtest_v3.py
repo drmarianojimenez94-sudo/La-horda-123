@@ -3,8 +3,10 @@ import csv,json,math
 from pathlib import Path
 from strategy_v3 import Config,decision,classify
 from backtest_v2 import load_data
+from v4_extension import SCENARIOS,simulate_partial_fill
 
-def run(data,start,end,config=Config()):
+def run(data,start,end,config=Config(),scenario=None):
+    scenario=scenario or SCENARIOS[0]
     times=sorted(set().union(*(set(v) for v in data.values())))
     cash=200.;positions={};pending={};history={s:[] for s in data}
     ledger=[];curve=[];peak=200.;max_dd=0.;day=None;day_equity=200.;halt=False
@@ -23,11 +25,13 @@ def run(data,start,end,config=Config()):
             pending.clear()
         for s,order in list(pending.items()):
             if active and not halt and s in bars and s not in positions and len(positions)<config.max_positions:
-                px=bars[s]["open"]*(1+config.half_spread+config.slippage)
-                qty=order["allocation"]/(px*(1+config.fee))
-                if qty>0 and order["allocation"]<=cash:
-                    cash-=order["allocation"]
-                    positions[s]=dict(order,qty=qty,entry=px,entry_time=t,entry_cost=order["allocation"],
+                fill=simulate_partial_fill(min(order["allocation"],cash),bars[s],scenario,"buy")
+                px=fill["price"]
+                actual_cost=fill["filled_notional"]
+                qty=actual_cost/(px*(1+scenario.fee))
+                if qty>0 and actual_cost<=cash and actual_cost>=5:
+                    cash-=actual_cost
+                    positions[s]=dict(order,qty=qty,entry=px,entry_time=t,entry_cost=actual_cost,fill_ratio=fill["fill_ratio"],
                                       stop=px*(1-order["stop_distance"]),
                                       target=px*(1+order["stop_distance"]*order["reward_risk"]),age=0)
             pending.pop(s,None)
@@ -42,8 +46,15 @@ def run(data,start,end,config=Config()):
             elif p["age"]>=864:reason,px="timeout",b["close"]
             elif t>=end and active:reason,px="window_end",b["close"]
             if reason:
-                exit_price=px*(1-config.half_spread-config.slippage)
-                proceeds=p["qty"]*exit_price*(1-config.fee);cash+=proceeds
+                exit_bar=dict(bars[s],open=px)
+                exit_fill=simulate_partial_fill(p["qty"]*px,exit_bar,scenario,"sell")
+                exit_price=exit_fill["price"]
+                exit_qty=min(p["qty"],exit_fill["filled_notional"]/px) if px>0 else 0
+                proceeds=exit_qty*exit_price*(1-scenario.fee);cash+=proceeds
+                if exit_qty<p["qty"]:
+                    p["qty"]-=exit_qty
+                    p["entry_cost"]*=p["qty"]/(p["qty"]+exit_qty)
+                    continue
                 ledger.append(dict(symbol=s,strategy=p["strategy"],regime=p["regime"],entry_time=p["entry_time"],exit_time=t,
                                    entry=p["entry"],exit=exit_price,quantity=p["qty"],cost=p["entry_cost"],
                                    proceeds=proceeds,pnl=proceeds-p["entry_cost"],reason=reason,stop_distance=p["stop_distance"],reward_risk=p["reward_risk"],estimated_net=p["estimated_net"]))
@@ -58,8 +69,8 @@ def run(data,start,end,config=Config()):
             pending.clear()
             for sym,p in list(positions.items()):
                 if sym not in bars: continue
-                px=bars[sym]["close"]*(1-config.half_spread-config.slippage)
-                proceeds=p["qty"]*px*(1-config.fee)
+                px=bars[sym]["close"]*(1-scenario.half_spread-scenario.slippage)
+                proceeds=p["qty"]*px*(1-scenario.fee)
                 cash+=proceeds
                 ledger.append(dict(symbol=sym,strategy=p["strategy"],regime=p["regime"],entry_time=p["entry_time"],exit_time=t,entry=p["entry"],exit=px,quantity=p["qty"],cost=p["entry_cost"],proceeds=proceeds,pnl=proceeds-p["entry_cost"],reason="risk_liquidation",stop_distance=p["stop_distance"],reward_risk=p["reward_risk"],estimated_net=p["estimated_net"]))
                 del positions[sym]
@@ -78,8 +89,8 @@ def run(data,start,end,config=Config()):
     for sym,p in list(positions.items()):
         last=next((data[sym][ts] for ts in reversed(times) if start<=ts<end and ts in data[sym]),None)
         if last is None: continue
-        px=last["close"]*(1-config.half_spread-config.slippage)
-        proceeds=p["qty"]*px*(1-config.fee)
+        px=last["close"]*(1-scenario.half_spread-scenario.slippage)
+        proceeds=p["qty"]*px*(1-scenario.fee)
         cash+=proceeds
         ledger.append(dict(symbol=sym,strategy=p["strategy"],regime=p["regime"],entry_time=p["entry_time"],exit_time=end,entry=p["entry"],exit=px,quantity=p["qty"],cost=p["entry_cost"],proceeds=proceeds,pnl=proceeds-p["entry_cost"],reason="window_end",stop_distance=p["stop_distance"],reward_risk=p["reward_risk"],estimated_net=p["estimated_net"]))
         del positions[sym]
