@@ -20,14 +20,17 @@ def characterize(data):
         block=288
         daily=[math.prod(1+x for x in returns[i:i+block])-1
                for i in range(0,len(returns)-block+1,block)]
+        peak=0.;max_dd=0.
+        for bar in bars:
+            peak=max(peak,bar["close"])
+            max_dd=max(max_dd,1-bar["close"]/peak)
         output[symbol]={"candles":len(bars),"first":keys[0],"last":keys[-1],
             "total_return_pct":100*(bars[-1]["close"]/bars[0]["open"]-1),
             "five_minute":summary(returns),"daily":summary(daily) if daily else None,
             "mean_range_pct":100*mean(ranges),
             "mean_quote_volume":mean(volumes),
             "volume_spike_fraction":sum(v>2*mean(volumes) for v in volumes)/len(volumes),
-            "maximum_drawdown_pct":100*max((1-bars[i]["close"]/max(b["close"] for b in bars[:i+1]))
-                                           for i in range(len(bars)))}
+            "maximum_drawdown_pct":100*max_dd}
     return {"data_type":"real_historical_5m_OHLCV","symbols":output,
             "warning":"OHLCV contains no historical bid/ask or order-book depth."}
 
