@@ -17,9 +17,11 @@ def diagnose(signals,models,exposure=None,limit=.4,per_asset=.15,threshold=.0018
             p=calibrated_probability(predict(m["model"],row),m["calibration"])
             expected=p*m["win"]-(1-p)*m["loss"]
             penalty=sum(exposure.values())*.25*m["loss"]
-            result.update(probability=p,expected_net=expected-penalty,
-                          gross_expected=expected,portfolio_penalty=penalty)
-            if expected-penalty<threshold:
+            uncertainty=.25*m.get("calibration_error",0)*(m["win"]+m["loss"])+.0001
+            result.update(probability=p,expected_net=expected-penalty-uncertainty,
+                          gross_expected=expected,portfolio_penalty=penalty,
+                          uncertainty_buffer=uncertainty)
+            if expected-penalty-uncertainty<threshold:
                 result["reason"]="insufficient_expected_net"
             elif symbol in exposure:
                 result["reason"]="existing_asset_exposure"
