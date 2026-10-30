@@ -4,7 +4,7 @@ Leverage is gated by independent validation and adverse execution stress.
 from math import isfinite
 
 def leverage_decision(validation,requested=2.0,fee_per_side=.001,
-                      funding_rate=.0003,stress_move=.08,
+                      funding_rate=.0003,stress_move=.04,
                       max_leverage=2.0,max_stress_loss=.10):
     trades=int(validation.get("trades",0))
     ret=float(validation.get("return_pct",0))/100
