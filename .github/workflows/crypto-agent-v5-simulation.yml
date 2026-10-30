@@ -27,6 +27,7 @@ jobs:
           python -m unittest discover -s crypto-agent -p 'test_engine_v5.py' -v
           python -m unittest discover -s crypto-agent -p 'test_backtest_v5.py' -v
           python -m unittest discover -s crypto-agent -p 'test_meta_v5.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_diagnostics_v5.py' -v
       - name: Download historical crypto market data
         run: python crypto-agent/download_5m.py --days ${{ inputs.days }}
       - name: Train specialists and evaluate independent walk-forward windows
