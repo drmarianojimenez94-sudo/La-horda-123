@@ -1,0 +1,19 @@
+name: CryptoAgent Fast Regression
+on:
+  pull_request:
+    paths:
+      - 'crypto-agent/**'
+      - '.github/workflows/crypto-agent-fast-regression.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile all sources
+        run: python -m compileall -q crypto-agent
+      - name: Run all V5 tests
+        run: python -m unittest discover -s crypto-agent -p 'test_*v5.py' -v

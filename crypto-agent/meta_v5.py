@@ -4,13 +4,16 @@ from learner_v4 import fit, predict
 from v4_extension import fit_platt, calibrated_probability
 from labels_v5 import purged_split
 
-def train(rows, train_end, calibration_end, test_end):
+def train(rows, train_end, calibration_end, test_end, archived=None):
     training, calibration, test = purged_split(rows, train_end, calibration_end, test_end)
     models = {}
+    archived=archived or {}
     for name in ("trend", "breakout", "mean_reversion"):
         train_rows = [r for r in training if r["strategy"] == name]
         cal_rows = [r for r in calibration if r["strategy"] == name]
-        model = fit(train_rows, min_samples=30)
+        prior=archived.get(name)
+        model = fit(train_rows, min_samples=30,
+                    initial_weights=prior["weights"] if prior else None)
         if model is None or len(cal_rows) < 30:
             continue
         calibration_model = fit_platt(
@@ -30,7 +33,10 @@ def train(rows, train_end, calibration_end, test_end):
             continue  # reject specialist that cannot beat a constant predictor
         models[name] = {"model": model, "calibration": calibration_model,
                         "model_brier":model_brier,"constant_brier":constant_brier,
-                        "win": mean(wins), "loss": mean(losses)}
+                        "win": mean(wins), "loss": mean(losses),
+                        "calibration_samples":len(cal_rows),
+                        "calibration_error":abs(mean(probabilities)-mean(r["label"] for r in cal_rows)),
+                        "warm_start_run":prior["source_run"] if prior else None}
     # Select a conservative entry threshold using calibration only, never OOS.
     # Positive expectancy is mandatory; cap the historical fixed threshold at 0.18%.
     positive=[]
@@ -38,7 +44,8 @@ def train(rows, train_end, calibration_end, test_end):
         m=models.get(row["strategy"])
         if m is None:continue
         p=calibrated_probability(predict(m["model"],row),m["calibration"])
-        edge=p*m["win"]-(1-p)*m["loss"]
+        uncertainty=.25*m["calibration_error"]*(m["win"]+m["loss"])
+        edge=p*m["win"]-(1-p)*m["loss"]-uncertainty-.0001
         if edge>0:positive.append(edge)
     positive.sort()
     threshold=max(.0001,min(.0018,positive[int(.75*(len(positive)-1))])) if positive else .0018
@@ -58,6 +65,7 @@ def select(signals, models, exposure=None, limit=.4, per_asset=.15, threshold=.0
             predict(model["model"], signal), model["calibration"])
         expected = probability * model["win"] - (1-probability) * model["loss"]
         expected -= sum(exposure.values()) * .25 * model["loss"]
+        expected -= .25*model.get("calibration_error",0)*(model["win"]+model["loss"])+.0001
         if expected >= threshold:
             ranked.append((expected, signal, probability))
     ranked.sort(key=lambda row: row[0], reverse=True)

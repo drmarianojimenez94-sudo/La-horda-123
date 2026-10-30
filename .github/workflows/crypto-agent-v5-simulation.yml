@@ -35,11 +35,16 @@ jobs:
           python -m unittest discover -s crypto-agent -p 'test_economic_learning_v5.py' -v
           python -m unittest discover -s crypto-agent -p 'test_fast_v5.py' -v
           python -m unittest discover -s crypto-agent -p 'test_adaptive_entry_v5.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_memory_retraining_v5.py' -v
       - name: Download historical crypto market data
         run: python crypto-agent/download_5m.py --days ${{ inputs.days }}
-      - name: Fast feasibility preflight (stop if no eligible calibrated signals)
-        run: python crypto-agent/preflight_v5.py
+      - name: Fast feasibility preflight
+        id: preflight
+        run: |
+          python crypto-agent/preflight_v5.py
+          python -c "import json,os; r=json.load(open('crypto-agent/preflight_v5.json')); print('ready='+str(r['ready']).lower(),file=open(os.environ['GITHUB_OUTPUT'],'a'))"
       - name: Train specialists and evaluate independent walk-forward windows
+        if: steps.preflight.outputs.ready == 'true'
         run: python crypto-agent/walkforward_v5.py
       - name: Evaluate Champion Challenger archive
         run: python crypto-agent/champion_v5.py > crypto-agent/champion_comparison_v5.json
@@ -55,7 +60,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
       - name: Archive immutable training report in repository
-        if: success()
+        if: steps.preflight.outputs.ready == 'true' && success()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python crypto-agent/training_memory_v5.py --report crypto-agent/audit_v5_walkforward.json --days ${{ inputs.days }}
