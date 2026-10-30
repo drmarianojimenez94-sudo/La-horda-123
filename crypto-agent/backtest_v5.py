@@ -44,7 +44,7 @@ def run(data,start=None,end=None,initial=200.,conditions=MarketConditions(),hold
             curve.append({"timestamp":t,"equity":p.equity(last)})
         for s,b in bars.items():
             history[s].append(b)
-            if len(history[s])>2500:history[s].pop(0)
+            if len(history[s])>121:history[s].pop(0)
         if t<start:continue
         proposals=[]
         for s in bars:
