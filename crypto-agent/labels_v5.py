@@ -15,7 +15,7 @@ def label_opportunities(data,step=12,horizon=36,fee=.001,half_spread=.0003,slipp
                 exit_price=series[times[i+horizon]]["open"]*(1-half_spread-slippage)
                 gross=(exit_price*(1-fee))/(entry*(1+fee))-1
                 rows.append({**signal,"symbol":symbol,"signal_time":times[i],
-                    "entry_time":times[i+1],"label_end":times[i+horizon+1],
+                    "entry_time":times[i+1],"label_end":times[i+horizon],
                     "net_return":gross,"pnl":gross,"label":int(gross>0),
                     "label_policy":"next_open_to_post_horizon_open_net_of_costs"})
     return rows
