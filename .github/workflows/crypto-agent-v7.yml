@@ -24,3 +24,4 @@ jobs:
         run: |
           python -m unittest discover -s crypto-agent -p 'test_event_v7.py' -v
           python -m unittest discover -s crypto-agent -p 'test_event_learning_v7.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_brain_v7.py' -v
