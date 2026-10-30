@@ -1,0 +1,46 @@
+name: V8 Automatic Strategy Simulation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crypto-agent/v8_strategy_research.py'
+      - 'crypto-agent/test_v8_strategy_research.py'
+      - '.github/workflows/v8-auto-simulation.yml'
+  workflow_dispatch:
+concurrency:
+  group: v8-simulation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax and V8 regression
+        run: |
+          python -m compileall -q crypto-agent
+          python -m unittest discover -s crypto-agent -p 'test_v8_strategy_research.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_v8_leverage_policy.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_v8_margin_ledger.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_v8_margin_comparison.py' -v
+      - name: Download 90 days real BTC and ETH
+        run: python crypto-agent/download_5m.py --days 90 --symbols BTCUSDT,ETHUSDT
+      - name: Simulate all 50 hypotheses
+        run: python crypto-agent/v8_strategy_research.py
+      - name: Analyze historical price behaviour
+        run: python crypto-agent/v8_price_behaviour.py
+      - name: Upload V8 results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-50-strategy-results
+          path: |
+            crypto-agent/v8-strategy-research.json
+            crypto-agent/v8-price-behaviour.json
+          if-no-files-found: warn
+          retention-days: 90

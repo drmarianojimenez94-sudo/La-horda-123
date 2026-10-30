@@ -1,0 +1,42 @@
+name: V8 Full Year 2025 Historical Research
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crypto-agent/download_year_v8.py'
+      - 'crypto-agent/v8_2025_research.py'
+      - 'crypto-agent/v8_strategy_research.py'
+      - '.github/workflows/v8-2025-research.yml'
+  workflow_dispatch:
+concurrency:
+  group: v8-year-2025
+  cancel-in-progress: true
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile and test before downloading
+        run: |
+          python -m compileall -q crypto-agent
+          python -m unittest discover -s crypto-agent -p 'test_v8_2025_research.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_v8_strategy_research.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_v8_margin_ledger.py' -v
+      - name: Download and verify all 2025 BTC ETH spot candles
+        run: python crypto-agent/download_year_v8.py --year 2025
+      - name: Simulate 50 strategies on untouched final 2025 holdout
+        run: python crypto-agent/v8_2025_research.py
+      - name: Publish report regardless of research result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-2025-full-year-research
+          path: crypto-agent/v8-2025-research.json
+          if-no-files-found: warn
+          retention-days: 90
