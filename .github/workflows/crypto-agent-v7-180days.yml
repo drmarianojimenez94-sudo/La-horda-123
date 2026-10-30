@@ -23,6 +23,7 @@ jobs:
           python -m unittest discover -s crypto-agent -p 'test_replay_v7.py' -v
           python -m unittest discover -s crypto-agent -p 'test_six_month_v7.py' -v
           python -m unittest discover -s crypto-agent -p 'test_strategy_tournament_v7.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_strategy_safety_v7.py' -v
       - name: Download 180 days of REAL 5-minute market candles
         run: python crypto-agent/download_5m.py --days 180 --symbols BTCUSDT,ETHUSDT
       - name: Verify market coverage
