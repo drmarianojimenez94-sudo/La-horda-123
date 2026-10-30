@@ -1,0 +1,341 @@
+{
+  "history_days": 90,
+  "recorded_at": "2026-10-30T19:23:13.698233+00:00",
+  "report": {
+    "champion_candidate_metrics": {
+      "active_folds": 1,
+      "fees": 1.4749159280574122,
+      "folds": 2,
+      "max_drawdown_pct": 2.546926911079439,
+      "return_pct": -2.546926911079439
+    },
+    "champion_decision": {
+      "candidate": {
+        "active_folds": 1,
+        "fees": 1.4749159280574122,
+        "folds": 2,
+        "max_drawdown_pct": 2.546926911079439,
+        "return_pct": -2.546926911079439
+      },
+      "promote": false,
+      "reason": "insufficient_active_folds"
+    },
+    "data_fingerprint": "688e877da882a18fe8e1d50364941c54a1968a1b801b62023441c3bb60532959",
+    "folds": [
+      {
+        "baseline_comparison": {
+          "breakout": {
+            "constant_brier": 0.22162600640097144,
+            "model_brier": 0.2168162566021803
+          },
+          "mean_reversion": {
+            "constant_brier": 0.2696415853545166,
+            "model_brier": 0.23570042798501814
+          },
+          "trend": {
+            "constant_brier": 0.24517793237423666,
+            "model_brier": 0.23669581850397123
+          }
+        },
+        "cal_end": "2026-09-30T00:00:00+00:00",
+        "calibration_by_specialist": {
+          "breakout": {
+            "base_rate": 0.3163841807909605,
+            "brier": 0.2168162566021803,
+            "mean_probability": 0.31957544427481815,
+            "samples": 177,
+            "status": "calibrated"
+          },
+          "mean_reversion": {
+            "base_rate": 0.41353383458646614,
+            "brier": 0.23570042798501814,
+            "mean_probability": 0.4064633453311708,
+            "samples": 133,
+            "status": "calibrated"
+          },
+          "trend": {
+            "base_rate": 0.38576158940397354,
+            "brier": 0.23669581850397123,
+            "mean_probability": 0.38594770727712524,
+            "samples": 604,
+            "status": "calibrated"
+          }
+        },
+        "entry_threshold": 0.00047583475269424294,
+        "expectation_distribution": {
+          "0.1_to_0.18pct": 3,
+          "0_to_0.1pct": 1025,
+          "above_threshold": 0,
+          "negative": 5158
+        },
+        "fees": 1.4749159280574122,
+        "fills": 74,
+        "final_equity": 194.90614617784112,
+        "model_snapshots": {
+          "breakout": {
+            "average_loss": 0.00714124333515777,
+            "average_win": 0.01082001418312197,
+            "calibration": [
+              0.7486691631498863,
+              0.027003839755127268
+            ],
+            "weights": [
+              -0.3521975087246095,
+              0.0,
+              -0.1264714289240584,
+              0.0,
+              -0.1264714289240584,
+              0.0,
+              0.0,
+              -0.1138242860316524,
+              -0.10539285743671518,
+              0.08167849232667015,
+              0.1101011588467224,
+              0.07234725621312998,
+              -0.17727190405318238,
+              -0.1164897441771849,
+              0.0977654697048354
+            ]
+          },
+          "mean_reversion": {
+            "average_loss": 0.006296056068373046,
+            "average_win": 0.008992962470980656,
+            "calibration": [
+              0.8864259726395795,
+              0.5519153872335372
+            ],
+            "weights": [
+              -0.4023024511047913,
+              0.0,
+              0.0,
+              -0.13756859509970326,
+              0.0,
+              -0.13756859509970326,
+              0.0,
+              -0.10317644632477738,
+              -0.07795553722316514,
+              -0.13664871084644958,
+              -0.08979294250247995,
+              -0.20972630125064423,
+              -0.07125152054216352,
+              -0.00855779594463326,
+              -0.032716774005352674
+            ]
+          },
+          "trend": {
+            "average_loss": 0.010141603630684809,
+            "average_win": 0.01563774985357107,
+            "calibration": [
+              0.8244277069197422,
+              0.20107240656966216
+            ],
+            "weights": [
+              -0.33678638358444846,
+              -0.11234511971302556,
+              0.0,
+              0.0,
+              -0.11234511971302556,
+              0.0,
+              0.0,
+              -0.10111060774172292,
+              -0.08238642112288541,
+              0.06811238611633728,
+              0.041522522289425885,
+              -0.1644292968743833,
+              -0.01928556973699872,
+              -0.025501720349373754,
+              0.044935432748150615
+            ]
+          }
+        },
+        "return_pct": -2.546926911079439,
+        "samples": {
+          "calibration": 914,
+          "calibration_positive": 230,
+          "selected_threshold": 0.00047583475269424294,
+          "test": 662,
+          "threshold_method": "positive_calibration_edge_75th_percentile",
+          "train": 1957
+        },
+        "selection_reasons": {
+          "accepted": 98,
+          "insufficient_expected_net": 6084,
+          "portfolio_capacity": 4
+        },
+        "signals": 37,
+        "specialists": [
+          "trend",
+          "breakout",
+          "mean_reversion"
+        ],
+        "test_diagnostics_by_specialist": {
+          "breakout": {
+            "base_rate": 0.29775280898876405,
+            "brier": 0.2096862346965343,
+            "mean_probability": 0.311623370960836,
+            "samples": 178,
+            "status": "calibrated"
+          },
+          "mean_reversion": {
+            "base_rate": 0.24848484848484848,
+            "brier": 0.2127440457790414,
+            "mean_probability": 0.40689695274910975,
+            "samples": 165,
+            "status": "calibrated"
+          },
+          "trend": {
+            "base_rate": 0.2413793103448276,
+            "brier": 0.20113208114303768,
+            "mean_probability": 0.3759282893862864,
+            "samples": 319,
+            "status": "calibrated"
+          }
+        },
+        "test_end": "2026-10-14T23:55:00+00:00",
+        "train_end": "2026-09-15T00:00:00+00:00"
+      },
+      {
+        "baseline_comparison": {
+          "breakout": {
+            "constant_brier": 0.2102928818201625,
+            "model_brier": 0.20913839218868172
+          },
+          "trend": {
+            "constant_brier": 0.1904428760922842,
+            "model_brier": 0.1825561729549868
+          }
+        },
+        "cal_end": "2026-10-15T00:00:00+00:00",
+        "calibration_by_specialist": {
+          "breakout": {
+            "base_rate": 0.29775280898876405,
+            "brier": 0.20913839218868172,
+            "mean_probability": 0.2992852833415164,
+            "samples": 178,
+            "status": "calibrated"
+          },
+          "mean_reversion": {
+            "samples": 165,
+            "status": "unavailable"
+          },
+          "trend": {
+            "base_rate": 0.2413793103448276,
+            "brier": 0.1825561729549868,
+            "mean_probability": 0.2413158220748192,
+            "samples": 319,
+            "status": "calibrated"
+          }
+        },
+        "entry_threshold": 0.0018,
+        "expectation_distribution": {
+          "0.1_to_0.18pct": 0,
+          "0_to_0.1pct": 0,
+          "above_threshold": 0,
+          "negative": 4058
+        },
+        "fees": 0.0,
+        "fills": 0,
+        "final_equity": 200.0,
+        "model_snapshots": {
+          "breakout": {
+            "average_loss": 0.007364640567803609,
+            "average_win": 0.010264838943953634,
+            "calibration": [
+              0.870614008169157,
+              0.025491571764148378
+            ],
+            "weights": [
+              -0.33148297536106464,
+              0.0,
+              -0.1188291583472952,
+              0.0,
+              -0.1188291583472952,
+              0.0,
+              0.0,
+              -0.10694624251256565,
+              -0.0990242986227459,
+              0.07685351154485225,
+              0.13904248190950572,
+              0.0009649084591802739,
+              -0.1333007738751389,
+              -0.09657807287489377,
+              0.07997529784970407
+            ]
+          },
+          "trend": {
+            "average_loss": 0.010215145735296425,
+            "average_win": 0.013992726896614315,
+            "calibration": [
+              1.2036821216328628,
+              -0.27329068597999134
+            ],
+            "weights": [
+              -0.2846677048309076,
+              -0.0952434439371657,
+              0.0,
+              0.0,
+              -0.0952434439371657,
+              0.0,
+              0.0,
+              -0.0857190995434491,
+              -0.06984519222058817,
+              -0.0032416512951881217,
+              0.06000205925443983,
+              -0.14556264743753253,
+              -0.02513215761219768,
+              -0.03282612665933447,
+              0.09150999634152901
+            ]
+          }
+        },
+        "return_pct": 0.0,
+        "samples": {
+          "calibration": 662,
+          "calibration_positive": 0,
+          "selected_threshold": 0.0018,
+          "test": 619,
+          "threshold_method": "positive_calibration_edge_75th_percentile",
+          "train": 2879
+        },
+        "selection_reasons": {
+          "insufficient_expected_net": 4058,
+          "specialist_unavailable": 1859
+        },
+        "signals": 0,
+        "specialists": [
+          "trend",
+          "breakout"
+        ],
+        "test_diagnostics_by_specialist": {
+          "breakout": {
+            "base_rate": 0.2689655172413793,
+            "brier": 0.1997739281644773,
+            "mean_probability": 0.2976403554296572,
+            "samples": 145,
+            "status": "calibrated"
+          },
+          "mean_reversion": {
+            "samples": 194,
+            "status": "unavailable"
+          },
+          "trend": {
+            "base_rate": 0.23214285714285715,
+            "brier": 0.17881992746690636,
+            "mean_probability": 0.24031421293965474,
+            "samples": 280,
+            "status": "calibrated"
+          }
+        },
+        "test_end": "2026-10-29T23:55:00+00:00",
+        "train_end": "2026-09-30T00:00:00+00:00"
+      }
+    ],
+    "method": "expanding purged training, independent calibration and disjoint OOS",
+    "no_live_orders": true
+  },
+  "report_sha256": "39a3c8bc41e21d332585c22786a753f8254629896b92ce846d5c644293cb1670",
+  "run_id": "41114130176",
+  "schema_version": 1,
+  "source_commit": "b05747cc6d4e3698772fff5c9ed910e3e532fdc3",
+  "workflow": "CryptoAgent V5 Historical Simulation"
+}
