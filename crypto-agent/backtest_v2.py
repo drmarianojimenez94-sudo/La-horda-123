@@ -24,7 +24,7 @@ def load_data(folder="crypto-agent/data_5m"):
  return out
 
 def signal(history,params):
- if len(history)<max(2200,params["slow"]+288):return None
+ if len(history)<max(2200,params["slow"]+288):return None,None
  c=[r["close"] for r in history]
  fast=statistics.fmean(c[-params["fast"]:])
  slow=statistics.fmean(c[-params["slow"]:])
