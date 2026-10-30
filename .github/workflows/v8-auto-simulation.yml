@@ -5,6 +5,9 @@ on:
     paths:
       - 'crypto-agent/v8_strategy_research.py'
       - 'crypto-agent/test_v8_strategy_research.py'
+      - 'crypto-agent/v8_channel_portfolio.py'
+      - 'crypto-agent/v8_channel_signals.py'
+      - 'crypto-agent/v8_shared_portfolio.py'
       - '.github/workflows/v8-auto-simulation.yml'
   workflow_dispatch:
 concurrency:
@@ -28,10 +31,13 @@ jobs:
           python -m unittest discover -s crypto-agent -p 'test_v8_leverage_policy.py' -v
           python -m unittest discover -s crypto-agent -p 'test_v8_margin_ledger.py' -v
           python -m unittest discover -s crypto-agent -p 'test_v8_margin_comparison.py' -v
+          python -m unittest discover -s crypto-agent -p 'test_v8_channel*.py' -v
       - name: Download 90 days real BTC and ETH
         run: python crypto-agent/download_5m.py --days 90 --symbols BTCUSDT,ETHUSDT
       - name: Simulate all 50 hypotheses
         run: python crypto-agent/v8_strategy_research.py
+      - name: Test shared-capital channel breakouts
+        run: python crypto-agent/v8_channel_portfolio.py
       - name: Analyze historical price behaviour
         run: python crypto-agent/v8_price_behaviour.py
       - name: Upload V8 results
@@ -42,5 +48,6 @@ jobs:
           path: |
             crypto-agent/v8-strategy-research.json
             crypto-agent/v8-price-behaviour.json
+            crypto-agent/v8-channel-portfolio.json
           if-no-files-found: warn
           retention-days: 90
